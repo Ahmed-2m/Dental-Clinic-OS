@@ -1,5 +1,7 @@
+import os
 import customtkinter as ctk
 import datetime
+from PIL import Image, ImageTk
 
 from backend.database import Database
 from backend.patients_repo import PatientsRepository
@@ -23,6 +25,59 @@ from ui.appointments_view import AppointmentsView  # واجهة إدارة ال�
 # تفعيل النمط العام الداكن والحديث والمحرك العربي
 apply_global_styles()
 
+
+def resource_path(relative_path):
+    """الحصول على المسار الصحيح للملفات سواء أثناء التشغيل العادي أو بعد التجميع"""
+    base_path = getattr(sys := __import__("sys"), "_MEIPASS", os.path.abspath("."))
+    return os.path.join(base_path, relative_path)
+
+
+def apply_window_icon(window):
+    """تعيين أيقونة النافذة تلقائياً من ملف app_logo.jpg"""
+    base_dir = os.path.abspath(".")
+    assets_dir = os.path.join(base_dir, "assets")
+    ico_path = os.path.join(base_dir, "app_icon.ico")
+    
+    # البحث عن الصورة في المجلد الرئيسي أو مجلد assets
+    candidate_imgs = [
+        os.path.join(base_dir, "app_logo.jpg"),
+        os.path.join(assets_dir, "app_logo.jpg"),
+    ]
+
+    try:
+        # إذا سبق توليد ملف الأيقونة نطبقه مباشرة
+        if os.path.exists(ico_path):
+            window.iconbitmap(ico_path)
+            return
+
+        for img_p in candidate_imgs:
+            if os.path.exists(img_p):
+                img = Image.open(img_p).convert("RGBA")
+                
+                # إذا كانت الصورة عريضة (تحتوي على النص في الأسفل)، نقص الجزء المربع الخاص بالأيقونة في المنتصف
+                w, h = img.size
+                if h > 0 and (w / h) > 1.4:
+                    crop_box = (int(w * 0.36), int(h * 0.16), int(w * 0.64), int(h * 0.54))
+                    img = img.crop(crop_box)
+
+                # جعل الأبعاد مربعة تماماً لتناسب أيقونة النظام
+                side = max(img.size)
+                square = Image.new("RGBA", (side, side), (255, 255, 255, 0))
+                offset = ((side - img.width) // 2, (side - img.height) // 2)
+                square.paste(img, offset, img)
+
+                # حفظ أيقونة .ico وتعيينها للنافذة
+                square.save(
+                    ico_path,
+                    format="ICO",
+                    sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+                )
+                window.iconbitmap(ico_path)
+                return
+    except Exception as e:
+        print(f"[تنبيه عند ضبط أيقونة النافذة]: {e}")
+
+
 class TayseerClinicApp(ctk.CTk):
     def __init__(self, user_data=None):
         super().__init__()
@@ -31,10 +86,13 @@ class TayseerClinicApp(ctk.CTk):
         self.user_data = user_data or {"role": "admin", "full_name": "مسؤول النظام"}
         self.user_role = str(self.user_data.get("role", "admin")).lower()
 
-        self.title("نظام عيادة تيسير لطب الأسنان | Tayseer Dental Clinic OS")
+        self.title("نظام عيادتي | My Clinic System")
         self.geometry("1320x840")
         self.minsize(1120, 720)
         self.configure(fg_color=THEME["bg_app"])
+
+        # تطبيق أيقونة النظام على النافذة الرئيسية
+        apply_window_icon(self)
 
         # مخازن البيانات (Backend Repositories)
         self.db = Database()
@@ -88,7 +146,7 @@ class TayseerClinicApp(ctk.CTk):
 
         clinic_name = ctk.CTkLabel(
             brand_text_box,
-            text="عيادة تيسير للأسنان",
+            text="نظام عيادتي",
             font=get_font(size=15, weight="bold"),
             text_color="#FFFFFF",
             anchor="e"
@@ -214,6 +272,7 @@ class TayseerClinicApp(ctk.CTk):
             app = TayseerClinicApp(user_data)
             app.mainloop()
         login_win = LoginWindow(on_login_success)
+        apply_window_icon(login_win)
         login_win.mainloop()
 
     def _set_active_tab_style(self, active_key):
@@ -350,7 +409,6 @@ class TayseerClinicApp(ctk.CTk):
         patients_count = self.patients_repo.get_count()
         staff_count = self.staff_repo.get_count()
         
-        # جلب عدد مواعيد اليوم لتحديثها في لوحة التحكم بشكل جميل
         today_str = datetime.date.today().strftime("%Y-%m-%d")
         todays_apps = self.appointments_repo.get_todays_appointments(today_str)
         todays_apps_count = len(todays_apps) if todays_apps else 0
@@ -570,10 +628,12 @@ class TayseerClinicApp(ctk.CTk):
             self.db_status_dot.configure(text_color=THEME["danger"])
             self.db_status_label.configure(text="خطأ في الاتصال بقاعدة البيانات!", text_color=THEME["danger"])
 
+
 if __name__ == "__main__":
     def start_main_app(user_data):
         app = TayseerClinicApp(user_data)
         app.mainloop()
 
     login_app = LoginWindow(start_main_app)
+    apply_window_icon(login_app)
     login_app.mainloop()

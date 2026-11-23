@@ -1,6 +1,55 @@
+import os
+from PIL import Image
 import customtkinter as ctk
 from backend.auth_repo import AuthRepository
 from ui.theme import THEME, get_font, setup_rtl_entry
+
+
+def _load_login_logo(size=(76, 76)):
+    base_dir = os.path.abspath(".")
+    assets_dir = os.path.join(base_dir, "assets")
+    os.makedirs(assets_dir, exist_ok=True)
+    cache_path = os.path.join(assets_dir, "logo_emblem_transparent.png")
+
+    candidate_imgs = [
+        os.path.join(base_dir, "app_logo.png.jpg"),
+        os.path.join(base_dir, "app_logo.jpg"),
+        os.path.join(assets_dir, "app_logo.png.jpg"),
+        os.path.join(assets_dir, "app_logo.jpg"),
+    ]
+
+    try:
+        if not os.path.exists(cache_path):
+            source_path = next((p for p in candidate_imgs if os.path.exists(p)), None)
+            if not source_path:
+                return None
+
+            img = Image.open(source_path).convert("RGBA")
+            w, h = img.size
+            if h > 0 and (w / h) > 1.2:
+                crop_box = (int(w * 0.36), int(h * 0.16), int(w * 0.64), int(h * 0.54))
+                img = img.crop(crop_box)
+
+            new_pixels = []
+            for r, g, b, a in img.getdata():
+                brightness = (r + g + b) / 3.0
+                saturation = max(r, g, b) - min(r, g, b)
+                if brightness >= 238 and saturation <= 18:
+                    new_pixels.append((r, g, b, 0))
+                elif brightness >= 210 and saturation <= 22:
+                    alpha = int(max(0, min(255, (238 - brightness) * (255 / 28))))
+                    new_pixels.append((r, g, b, alpha))
+                else:
+                    new_pixels.append((r, g, b, a))
+
+            img.putdata(new_pixels)
+            img.save(cache_path, format="PNG")
+
+        pil_img = Image.open(cache_path).convert("RGBA")
+        return ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=size)
+    except Exception:
+        return None
+
 
 class LoginWindow(ctk.CTk):
     def __init__(self, on_login_success):
@@ -8,9 +57,9 @@ class LoginWindow(ctk.CTk):
         self.auth_repo = AuthRepository()
         self.on_login_success = on_login_success  # دالة تستدعى عند نجاح الدخول لتسليم بيانات المستخدم والـ role
 
-        self.title("تسجيل الدخول - نظام عيادة التيسير")
-        self.geometry("480x480")
-        self.minsize(440, 450)
+        self.title("تسجيل الدخول - نظام عيادتي")
+        self.geometry("480x540")
+        self.minsize(440, 500)
         self.resizable(True, True)
         self.configure(fg_color=THEME["bg_app"])
 
@@ -21,12 +70,21 @@ class LoginWindow(ctk.CTk):
         card = ctk.CTkFrame(self, fg_color=THEME["bg_card"], corner_radius=16, border_width=1, border_color=THEME["border"])
         card.pack(fill="both", expand=True, padx=25, pady=25)
 
+        self.logo_img = _load_login_logo(size=(78, 78))
+        if self.logo_img:
+            ctk.CTkLabel(
+                card,
+                text="",
+                image=self.logo_img,
+                fg_color="transparent"
+            ).pack(pady=(20, 6))
+
         ctk.CTkLabel(
             card, 
             text="🔐 تسجيل الدخول للنظام", 
             font=get_font(size=22, weight="bold"), 
             text_color=THEME["primary"]
-        ).pack(pady=(28, 22))
+        ).pack(pady=(4, 18))
 
         # حقل اسم المستخدم
         ctk.CTkLabel(
