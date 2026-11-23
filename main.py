@@ -10,7 +10,7 @@ from backend.treasury_repo import DailyTreasuryRepository  # مستودع الخ
 from backend.labs_repo import LabsRepository
 from backend.appointments_repo import AppointmentsRepository  # مستودع المواعيد الجديد
 
-from ui.theme import THEME, fix_arabic, get_font, apply_global_styles, create_card_frame, fix_combobox_rtl
+from ui.theme import THEME, fix_arabic, get_font, apply_global_styles, create_card_frame, fix_combobox_rtl, get_clinic_logo
 from ui.patients_view import PatientsView
 from ui.settings_view import SettingsView
 from ui.labs_view import LabsView  
@@ -138,8 +138,13 @@ class TayseerClinicApp(ctk.CTk):
         )
         brand_frame.pack(fill="x")
 
-        logo_icon = ctk.CTkLabel(brand_frame, text="🦷", font=ctk.CTkFont(size=30))
-        logo_icon.pack(side="right", padx=(10, 14), pady=14)
+        self.sidebar_logo = get_clinic_logo(variant="emblem", size=(42, 42))
+        if self.sidebar_logo:
+            logo_icon = ctk.CTkLabel(brand_frame, text="", image=self.sidebar_logo)
+            logo_icon.pack(side="right", padx=(10, 14), pady=12)
+        else:
+            logo_icon = ctk.CTkLabel(brand_frame, text="🦷", font=ctk.CTkFont(size=30))
+            logo_icon.pack(side="right", padx=(10, 14), pady=14)
 
         brand_text_box = ctk.CTkFrame(brand_frame, fg_color="transparent")
         brand_text_box.pack(side="right", fill="x", expand=True, pady=12)
@@ -470,12 +475,67 @@ class TayseerClinicApp(ctk.CTk):
         welcome_panel = ctk.CTkFrame(body_grid, fg_color=THEME["bg_card"], corner_radius=14, border_width=1, border_color=THEME["border"])
         welcome_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        w_header = ctk.CTkFrame(welcome_panel, fg_color="transparent")
-        w_header.pack(fill="x", padx=16, pady=(16, 8))
-        ctk.CTkLabel(w_header, text=f"🌟 أهلاً بك {self.user_data.get('full_name', 'دكتور')} في النظام المطور", font=get_font(size=17, weight="bold"), text_color=THEME["teal"]).pack(anchor="e")
+        # بطاقة الترحيب المحدثة مع شعار وهوية العيادة
+        welcome_banner = ctk.CTkFrame(
+            welcome_panel,
+            fg_color=THEME["bg_card_secondary"],
+            corner_radius=12,
+            border_width=1,
+            border_color=THEME["border_light"]
+        )
+        welcome_banner.pack(fill="x", padx=14, pady=(14, 8))
+
+        # شعار النظام المعتمد في لوحة التحكم المركزية
+        self.dash_logo = get_clinic_logo(variant="full", size=(80, 80))
+        if self.dash_logo:
+            ctk.CTkLabel(welcome_banner, text="", image=self.dash_logo).pack(side="left", padx=(14, 10), pady=10)
+
+        banner_text = ctk.CTkFrame(welcome_banner, fg_color="transparent")
+        banner_text.pack(side="right", fill="x", expand=True, padx=(10, 14), pady=10)
+
+        ctk.CTkLabel(
+            banner_text,
+            text=f"🌟 أهلاً بك {self.user_data.get('full_name', 'دكتور')} في نظام عيادتي",
+            font=get_font(size=16, weight="bold"),
+            text_color=THEME["primary"],
+            anchor="e"
+        ).pack(fill="x", pady=(0, 2))
+
+        ctk.CTkLabel(
+            banner_text,
+            text="نظام إدارة العيادة الطبي والمالي المتكامل — كفاءة وسرعة ودقة في متابعة المرضى",
+            font=get_font(size=12),
+            text_color=THEME["text_secondary"],
+            anchor="e"
+        ).pack(fill="x", pady=(0, 4))
+
+        badge_row = ctk.CTkFrame(banner_text, fg_color="transparent")
+        badge_row.pack(fill="x")
+
+        ctk.CTkLabel(
+            badge_row,
+            text="🟢 النظام متصل وجاهز",
+            font=get_font(size=11, weight="bold"),
+            text_color=THEME["success"],
+            fg_color=THEME["success_soft"],
+            corner_radius=6,
+            padx=8,
+            pady=2
+        ).pack(side="right", padx=(0, 6))
+
+        ctk.CTkLabel(
+            badge_row,
+            text="🏥 عيادة تيسير لطب وجراحة الأسنان",
+            font=get_font(size=11),
+            text_color=THEME["teal"],
+            fg_color=THEME["teal_soft"],
+            corner_radius=6,
+            padx=8,
+            pady=2
+        ).pack(side="right")
 
         features_box = ctk.CTkScrollableFrame(welcome_panel, fg_color="transparent")
-        features_box.pack(fill="both", expand=True, padx=14, pady=10)
+        features_box.pack(fill="both", expand=True, padx=14, pady=(4, 10))
 
         tips = [
             ("📅 إدارة المواعيد الذكية:", "تم ربط تاريخ عودة المريض مباشرة من شاشة الجلسات العلاجية ليظهر تلقائياً في جدول مواعيد اليوم وإدارة المواعيد المستقلة."),

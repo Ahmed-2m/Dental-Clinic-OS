@@ -3,7 +3,9 @@
 Dark Professional Medical Theme — Tayseer Dental Clinic OS
 """
 
+import os
 import unicodedata
+from PIL import Image
 import customtkinter as ctk
 
 # =========================================================================
@@ -346,3 +348,55 @@ def apply_global_styles():
 
 # تطبيق فور الاستيراد
 _apply_widget_patches()
+
+
+# =========================================================================
+# إدارة وتحميل شعار العيادة بدقة عالية وتوافق كامل
+# =========================================================================
+_CLINIC_LOGO_CACHE = {}
+
+
+def get_clinic_logo(variant="emblem", size=(44, 44)):
+    """
+    تحميل شعار العيادة بدقة عالية وبشكل متناسق مع النمطين الداكن والفاتح.
+    :param variant: 'emblem' (أيقونة السن بدون نصوص) أو 'full' (الشعار كاملاً مع النصوص)
+    :param size: أبعاد الشعار العرض والارتفاع tuple (width, height)
+    :return: كائن ctk.CTkImage أو None في حال عدم توفر الملف
+    """
+    base_dir = os.path.abspath(".")
+    assets_dir = os.path.join(base_dir, "assets")
+    cache_key = (variant, size)
+    if cache_key in _CLINIC_LOGO_CACHE:
+        return _CLINIC_LOGO_CACHE[cache_key]
+
+    try:
+        if variant == "emblem":
+            dark_file = os.path.join(assets_dir, "logo_emblem_dark.png")
+            light_file = os.path.join(assets_dir, "logo_emblem_transparent.png")
+        else:
+            dark_file = os.path.join(assets_dir, "logo_full_dark.png")
+            light_file = os.path.join(assets_dir, "logo_full_transparent.png")
+
+        if not os.path.exists(dark_file):
+            dark_file = os.path.join(assets_dir, "logo_emblem_dark.png")
+        if not os.path.exists(light_file):
+            light_file = dark_file
+
+        if not os.path.exists(dark_file):
+            candidate = os.path.join(assets_dir, "app_logo.jpg")
+            if os.path.exists(candidate):
+                dark_file = candidate
+                light_file = candidate
+            else:
+                return None
+
+        pil_dark = Image.open(dark_file).convert("RGBA")
+        pil_light = Image.open(light_file).convert("RGBA")
+
+        ctk_img = ctk.CTkImage(light_image=pil_light, dark_image=pil_dark, size=size)
+        _CLINIC_LOGO_CACHE[cache_key] = ctk_img
+        return ctk_img
+    except Exception as e:
+        print(f"[تحذير عند تحميل شعار العيادة]: {e}")
+        return None
+

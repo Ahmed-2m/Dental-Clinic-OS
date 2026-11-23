@@ -9,7 +9,7 @@ import customtkinter as ctk
 from backend.staff_repo import StaffRepository
 from backend.backup_repo import BackupRepository
 from backend.reports_repo import ReportsRepository
-from ui.theme import THEME, get_font, setup_rtl_entry, setup_rtl_textbox, fix_combobox_rtl
+from ui.theme import THEME, get_font, setup_rtl_entry, setup_rtl_textbox, fix_combobox_rtl, get_clinic_logo
 
 class SettingsView(ctk.CTkFrame):
     def __init__(self, parent):
@@ -556,6 +556,39 @@ class SettingsView(ctk.CTkFrame):
 
         ctk.CTkLabel(container, text="⚙️ إعدادات العيادة العامة والتفضيلات", font=get_font(size=16, weight="bold"), text_color=THEME["primary"]).pack(anchor="e", pady=(0, 6))
         ctk.CTkLabel(container, text="البيانات المحفوظة هنا تُطبع تلقائياً في ترويسة كشوفات الـ PDF وتقارير الـ Excel الرسمية.", font=get_font(size=12), text_color=THEME["text_secondary"]).pack(anchor="e", pady=(0, 16))
+
+        # بطاقة هوية وشعار العيادة المعتمد
+        brand_card = ctk.CTkFrame(
+            container, 
+            corner_radius=12, 
+            fg_color=THEME["bg_card_secondary"],
+            border_width=1, 
+            border_color=THEME["border_light"]
+        )
+        brand_card.pack(fill="x", pady=(0, 14), padx=4)
+
+        self.settings_logo = get_clinic_logo(variant="full", size=(76, 76))
+        if self.settings_logo:
+            ctk.CTkLabel(brand_card, text="", image=self.settings_logo).pack(side="left", padx=16, pady=12)
+
+        b_text = ctk.CTkFrame(brand_card, fg_color="transparent")
+        b_text.pack(side="right", fill="x", expand=True, padx=16, pady=12)
+
+        ctk.CTkLabel(
+            b_text,
+            text="شعار وهوية النظام المعتمدة: نظام عيادتي (My Clinic)",
+            font=get_font(size=14, weight="bold"),
+            text_color=THEME["primary"],
+            anchor="e"
+        ).pack(fill="x", pady=(0, 3))
+
+        ctk.CTkLabel(
+            b_text,
+            text="يظهر الشعار تلقائياً في واجهة تسجيل الدخول، لوحة التحكم المركزية، الشريط الجانبي، والتقارير المعتمدة.",
+            font=get_font(size=12),
+            text_color=THEME["text_secondary"],
+            anchor="e"
+        ).pack(fill="x")
 
         info_frame = ctk.CTkFrame(
             container, 

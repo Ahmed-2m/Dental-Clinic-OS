@@ -32,6 +32,22 @@ def fix_ar(text):
     except Exception:
         return text_str
 
+
+def _add_clinic_logo_to_pdf(pdf):
+    """إدراج شعار العيادة المعتمد في ترويسة تقارير PDF الرسمية بأمان تام"""
+    try:
+        base_dir = os.path.abspath(".")
+        candidate_paths = [
+            os.path.join(base_dir, "assets", "app_logo.jpg"),
+            os.path.join(base_dir, "app_logo.jpg"),
+        ]
+        logo_path = next((p for p in candidate_paths if os.path.exists(p)), None)
+        if logo_path:
+            pdf.image(logo_path, 15, 8, 19, 19)
+    except Exception:
+        pass
+
+
 class StatementsRepository:
     def __init__(self):
         self.db = Database()
@@ -543,6 +559,7 @@ class StatementsRepository:
             pdf = FPDF(orientation='P', unit='mm', format='A4')
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.add_page()
+            _add_clinic_logo_to_pdf(pdf)
 
             font_path = r"C:\Windows\Fonts\arial.ttf"
             font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
@@ -735,6 +752,7 @@ class StatementsRepository:
             pdf = FPDF(orientation='P', unit='mm', format='A4')
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.add_page()
+            _add_clinic_logo_to_pdf(pdf)
 
             font_path = r"C:\Windows\Fonts\arial.ttf"
             font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
@@ -973,6 +991,7 @@ class StatementsRepository:
             pdf.set_right_margin(15)
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.add_page()
+            _add_clinic_logo_to_pdf(pdf)
 
             font_path = r"C:\Windows\Fonts\arial.ttf"
             font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
@@ -1148,6 +1167,7 @@ class StatementsRepository:
             pdf.set_right_margin(15)
             pdf.set_auto_page_break(auto=True, margin=15)
             pdf.add_page()
+            _add_clinic_logo_to_pdf(pdf)
 
             font_path = r"C:\Windows\Fonts\arial.ttf"
             font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
