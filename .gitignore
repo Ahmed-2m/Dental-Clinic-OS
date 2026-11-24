@@ -1,0 +1,27 @@
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build & distribution folders
+build/
+dist/
+*.egg-info/
+
+# Virtual environments & local env files
+venv/
+env/
+.venv/
+.env
+
+# Database backups & stray local DB files
+database_backups/*.sql
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
