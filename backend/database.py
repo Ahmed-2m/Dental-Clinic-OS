@@ -1,14 +1,45 @@
+import json
+import os
+import sys
 import mysql.connector
 from mysql.connector import Error
 
+
 class Database:
-    def __init__(self, host='localhost', database='', user='root', password=''):
+    def __init__(self, host='localhost', database='', user='root', password='', port=3306):
         self.config = {
             'host': host,
+            'port': int(port),
             'database': database,
             'user': user,
-            'password': password
+            'password': password,
+            'charset': 'utf8mb4',
+            'use_unicode': True,
         }
+
+    @staticmethod
+    def _get_base_dir() -> str:
+        if getattr(sys, 'frozen', False):
+            return os.path.dirname(sys.executable)
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+    @classmethod
+    def from_config_file(cls, config_filename: str = 'clinic_config.json') -> 'Database':
+        config_path = os.path.join(cls._get_base_dir(), config_filename)
+        if not os.path.exists(config_path):
+            return cls()
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        db_cfg = data.get('db', data)
+        return cls(
+            host=db_cfg.get('host', 'localhost'),
+            database=db_cfg.get('database', ''),
+            user=db_cfg.get('user', 'root'),
+            password=db_cfg.get('password', ''),
+            port=db_cfg.get('port', 3306),
+        )
 
     def get_connection(self):
         """إنشاء وإرجاع كائن الاتصال بقاعدة البيانات"""
