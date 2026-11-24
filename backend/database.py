@@ -2,7 +2,7 @@ import mysql.connector
 from mysql.connector import Error
 
 class Database:
-    def __init__(self, host='localhost', database='tayseer_db', user='root', password='Zakri@123'):
+    def __init__(self, host='localhost', database='', user='root', password=''):
         self.config = {
             'host': host,
             'database': database,
