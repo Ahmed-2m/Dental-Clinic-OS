@@ -4,7 +4,7 @@ import datetime
 
 class PatientAccountsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_invoice_from_treatment(self, patient_id, treatment_id, total_amount, paid_amount, payment_status, payment_method, payment_date=None):
         """إنشاء فاتورة مالية مرتبطة بالجلسة العلاجية أوتوماتيكياً"""

@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class PatientsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def get_all(self):
         """جلب قائمة جميع المرضى"""

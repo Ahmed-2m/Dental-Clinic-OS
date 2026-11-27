@@ -4,7 +4,7 @@ from mysql.connector import Error
 
 class AppointmentsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def get_todays_appointments(self, target_date=None):
         """جلب مواعيد يوم معين (افتراضياً اليوم الحالي) لتحديث لوحة إدارة المواعيد"""

@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class SuppliersRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_supplier(self, supplier_name, address, phone, notes):
         """إضافة مورد جديد"""

@@ -4,7 +4,7 @@ from mysql.connector import Error
 
 class StaffRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def _hash_password(self, password):
         """تشفير كلمة المرور باستخدام SHA256 لضمان الأمان التام"""

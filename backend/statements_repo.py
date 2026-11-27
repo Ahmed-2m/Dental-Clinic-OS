@@ -1,5 +1,4 @@
 import os
-import json
 import datetime
 import pandas as pd
 from fpdf import FPDF
@@ -7,7 +6,9 @@ import arabic_reshaper
 from bidi.algorithm import get_display
 
 from backend.database import Database
+from backend.print_branding import load_clinic_profile, draw_pdf_clinic_logo
 from mysql.connector import Error
+
 
 def fix_ar(text):
     """تهيئة النص العربي للطباعة في تقارير PDF بواسطة FPDF مع الحفاظ على الأرقام والإنجليزية"""
@@ -18,11 +19,11 @@ def fix_ar(text):
         return ""
     try:
         has_arabic = any(
-            '\u0600' <= char <= '\u06FF' or 
-            '\u0750' <= char <= '\u077F' or 
-            '\u08A0' <= char <= '\u08FF' or 
-            '\uFB50' <= char <= '\uFDFF' or 
-            '\uFE70' <= char <= '\uFEFF' 
+            '\u0600' <= char <= '\u06FF' or
+            '\u0750' <= char <= '\u077F' or
+            '\u08A0' <= char <= '\u08FF' or
+            '\uFB50' <= char <= '\uFDFF' or
+            '\uFE70' <= char <= '\uFEFF'
             for char in text_str
         )
         if has_arabic:
@@ -33,51 +34,105 @@ def fix_ar(text):
         return text_str
 
 
-def _add_clinic_logo_to_pdf(pdf):
-    """إدراج شعار العيادة المعتمد في ترويسة تقارير PDF الرسمية بأمان تام"""
-    try:
-        base_dir = os.path.abspath(".")
-        candidate_paths = [
-            os.path.join(base_dir, "assets", "app_logo.jpg"),
-            os.path.join(base_dir, "app_logo.jpg"),
-        ]
-        logo_path = next((p for p in candidate_paths if os.path.exists(p)), None)
-        if logo_path:
-            pdf.image(logo_path, 15, 8, 19, 19)
-    except Exception:
-        pass
+def _fit_text(pdf: FPDF, raw_text, max_width: float) -> str:
+    """تقليص النص بذكاء قبل التشكيل العربي ليتناسب تماماً مع عرض الخلية دون تجاوز الحدود"""
+    text_str = str(raw_text or "").strip()
+    if not text_str:
+        return ""
+    safe_w = max(4.0, max_width - 2.5)
+    if pdf.get_string_width(fix_ar(text_str)) <= safe_w:
+        return fix_ar(text_str)
+
+    trimmed = text_str
+    while len(trimmed) > 1:
+        trimmed = trimmed[:-1]
+        candidate = fix_ar(trimmed + "..")
+        if pdf.get_string_width(candidate) <= safe_w:
+            return candidate
+    return fix_ar(trimmed)
 
 
 class StatementsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def get_clinic_info(self):
-        """قراءة بيانات وهوية العيادة من الإعدادات"""
-        config_file = os.path.join(os.getcwd(), "clinic_config.json")
-        default_cfg = {
-            "name": "عيادة تيسير لطب الأسنان",
-            "phone": "770000000",
-            "address": "صنعاء - اليمن"
-        }
-        if os.path.exists(config_file):
-            try:
-                with open(config_file, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return {
-                        "name": data.get("name", default_cfg["name"]),
-                        "phone": data.get("phone", default_cfg["phone"]),
-                        "address": data.get("address", default_cfg["address"])
-                    }
-            except Exception:
-                return default_cfg
-        return default_cfg
+        """قراءة بيانات وهوية العيادة من الملف الموحد للطباعة (clinic_profile.json)"""
+        return load_clinic_profile()
+
+    def _init_pdf(self, c_info):
+        """تهيئة مستند PDF موحد الأبعاد (A4 بعرض عمل 180 مم وهوافش 15 مم)"""
+        pdf = FPDF(orientation='P', unit='mm', format='A4')
+        pdf.set_left_margin(15)
+        pdf.set_right_margin(15)
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        draw_pdf_clinic_logo(pdf, c_info)
+
+        font_path = r"C:\Windows\Fonts\arial.ttf"
+        font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
+        if os.path.exists(font_path):
+            pdf.add_font("ArabicFont", "", font_path, uni=True)
+            if os.path.exists(font_bold_path):
+                pdf.add_font("ArabicFont", "B", font_bold_path, uni=True)
+            font_name = "ArabicFont"
+        else:
+            font_name = "Arial"
+
+        return pdf, font_name, 180.0
+
+    def _draw_pdf_header(self, pdf: FPDF, font_name: str, c_info: dict, title: str, accent_rgb: tuple, usable_w: float):
+        """رسم ترويسة العيادة وعنوان التقرير بعرض موحد 180 مم"""
+        pdf.set_font(font_name, "B", 17)
+        pdf.set_text_color(15, 23, 42)
+        pdf.cell(usable_w, 9, txt=fix_ar(c_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
+
+        pdf.set_font(font_name, "", 10)
+        pdf.set_text_color(71, 85, 105)
+        clinic_contact = f"العنوان: {c_info.get('address', 'صنعاء')}   |   هاتف: {c_info.get('phone', '770000000')}"
+        pdf.cell(usable_w, 6, txt=fix_ar(clinic_contact), ln=True, align="C")
+
+        r, g, b = accent_rgb
+        pdf.set_draw_color(r, g, b)
+        pdf.set_line_width(0.8)
+        line_y = pdf.get_y() + 2
+        pdf.line(15, line_y, 15 + usable_w, line_y)
+        pdf.ln(5)
+
+        pdf.set_font(font_name, "B", 13)
+        pdf.set_fill_color(241, 245, 249)
+        pdf.set_text_color(r, g, b)
+        pdf.cell(usable_w, 9, txt=fix_ar(title), ln=True, align="C", fill=True)
+        pdf.ln(4)
+
+    def _draw_table_header(self, pdf: FPDF, font_name: str, headers: list, widths: list, fill_rgb=(15, 23, 42), font_size=9):
+        """رسم رأس الجدول بمحاذاة مضبوطة على اليسار 15 مم"""
+        pdf.set_x(15)
+        pdf.set_fill_color(*fill_rgb)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font(font_name, "B", font_size)
+        for h, w in zip(headers, widths):
+            pdf.cell(w, 8, txt=_fit_text(pdf, h, w), border=1, align="C", fill=True)
+        pdf.ln()
+
+    def _draw_signatures(self, pdf: FPDF, font_name: str, usable_w: float, right_label: str):
+        """رسم قسم التواقيع في أسفل الصفحة ضمن العرض الموحد"""
+        pdf.set_font(font_name, "", 10)
+        pdf.set_text_color(100, 116, 139)
+        sign_y = pdf.get_y()
+        if sign_y > 260:
+            pdf.add_page()
+            sign_y = pdf.get_y()
+        half_w = usable_w / 2.0
+        pdf.set_xy(15, sign_y)
+        pdf.cell(half_w, 6, txt=fix_ar("توقيع المحاسب / الإدارة: ........................"), align="L")
+        pdf.set_xy(15 + half_w, sign_y)
+        pdf.cell(half_w, 6, txt=fix_ar(f"{right_label}: ........................"), align="R")
 
     # =========================================================================
     # 1. قوائم البحث والمساعدات (مرضى، معامل، موظفين، موردين)
     # =========================================================================
     def get_patients_list(self):
-        """جلب قائمة سريعة بجميع المرضى مع إجمالي المديونية الحالية لكل مريض"""
         conn = self.db.get_connection()
         if not conn:
             return []
@@ -104,7 +159,6 @@ class StatementsRepository:
             return []
 
     def get_labs_list(self):
-        """جلب قائمة بجميع المعامل المتعاقدة مع رصيد الذمة المتبقي لكل معمل"""
         conn = self.db.get_connection()
         if not conn:
             return []
@@ -139,7 +193,6 @@ class StatementsRepository:
             return []
 
     def get_staff_list(self):
-        """جلب قائمة الموظفين من جدول employees الفعلي"""
         conn = self.db.get_connection()
         if not conn:
             return []
@@ -160,7 +213,7 @@ class StatementsRepository:
             return []
 
     # =========================================================================
-    # 2. كشف حساب المريض (Patient Account Statement Data) - معدل الرصيد التراكمي
+    # 2. كشف حساب المريض
     # =========================================================================
     def get_patient_statement(self, patient_id, start_date=None, end_date=None):
         conn = self.db.get_connection()
@@ -241,8 +294,6 @@ class StatementsRepository:
             statement_items = []
             period_total_cost = 0.0
             period_total_paid = 0.0
-            
-            # حساب الرصيد التراكمي الدقيق لكل حركة بدون ظهور سالب غير منطقي
             running_remain = 0.0
 
             for r in acc_rows:
@@ -250,11 +301,7 @@ class StatementsRepository:
                 cost = float(total_amt or 0)
                 paid = float(paid_amt or 0)
 
-                if t_id:
-                    row_net_change = cost - paid
-                else:
-                    row_net_change = -paid
-
+                row_net_change = (cost - paid) if t_id else (-paid)
                 running_remain += row_net_change
                 remain = max(0.0, running_remain) if running_remain > 0 else running_remain
 
@@ -303,7 +350,7 @@ class StatementsRepository:
             return None, [], {}
 
     # =========================================================================
-    # 3. كشف حساب المعمل (Lab Account Statement Data)
+    # 3. كشف حساب المعمل
     # =========================================================================
     def get_lab_statement(self, lab_id, start_date=None, end_date=None):
         conn = self.db.get_connection()
@@ -415,7 +462,7 @@ class StatementsRepository:
             return None, [], [], {}
 
     # =========================================================================
-    # 4. كشف حساب الموظف (Staff Account Statement Data)
+    # 4. كشف حساب الموظف
     # =========================================================================
     def get_staff_statement(self, emp_id, start_date=None, end_date=None):
         conn = self.db.get_connection()
@@ -502,7 +549,7 @@ class StatementsRepository:
             return None, [], {}
 
     # =========================================================================
-    # 5. كشف حساب المشتريات (Purchases Account Statement Data)
+    # 5. كشف حساب المشتريات
     # =========================================================================
     def get_purchase_statement(self, supplier_id):
         conn = self.db.get_connection()
@@ -547,7 +594,7 @@ class StatementsRepository:
             return None, [], {}
 
     # =========================================================================
-    # 6. تصدير كشف حساب المريض PDF
+    # 6. تصدير كشف حساب المريض PDF (مضبوط العرض 180 مم)
     # =========================================================================
     def export_patient_statement_pdf(self, patient_id, save_path, start_date=None, end_date=None, clinic_info=None):
         try:
@@ -556,73 +603,44 @@ class StatementsRepository:
                 return False, "تعذر العثور على بيانات المريض المحددة."
 
             c_info = clinic_info or self.get_clinic_info()
-            pdf = FPDF(orientation='P', unit='mm', format='A4')
-            pdf.set_auto_page_break(auto=True, margin=15)
-            pdf.add_page()
-            _add_clinic_logo_to_pdf(pdf)
-
-            font_path = r"C:\Windows\Fonts\arial.ttf"
-            font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
-            has_ar_font = os.path.exists(font_path)
-            if has_ar_font:
-                pdf.add_font("ArabicFont", "", font_path, uni=True)
-                if os.path.exists(font_bold_path):
-                    pdf.add_font("ArabicFont", "B", font_bold_path, uni=True)
-            font_name = "ArabicFont" if has_ar_font else "Arial"
-
-            pdf.set_font(font_name, "B", 17)
-            pdf.set_text_color(15, 23, 42)
-            pdf.cell(0, 9, txt=fix_ar(c_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
-
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(71, 85, 105)
-            clinic_contact = f"العنوان: {c_info.get('address', 'صنعاء')}   |   هاتف: {c_info.get('phone', '770000000')}"
-            pdf.cell(0, 6, txt=fix_ar(clinic_contact), ln=True, align="C")
-
-            pdf.set_draw_color(14, 165, 233)
-            pdf.set_line_width(0.8)
-            pdf.line(15, pdf.get_y() + 2, 195, pdf.get_y() + 2)
-            pdf.ln(5)
-
-            pdf.set_font(font_name, "B", 14)
-            pdf.set_fill_color(241, 245, 249)
-            pdf.set_text_color(14, 165, 233)
-            pdf.cell(0, 9, txt=fix_ar("📄 كشف حساب مالي تفصيلي للمريض"), ln=True, align="C", fill=True)
-            pdf.ln(4)
+            pdf, font_name, usable_w = self._init_pdf(c_info)
+            self._draw_pdf_header(pdf, font_name, c_info, "📄 كشف حساب مالي تفصيلي للمريض", (14, 165, 233), usable_w)
 
             pdf.set_draw_color(203, 213, 225)
             pdf.set_line_width(0.3)
             pdf.set_fill_color(248, 250, 252)
             start_y = pdf.get_y()
-            pdf.rect(15, start_y, 180, 24, "DF")
+            pdf.rect(15, start_y, usable_w, 24, "DF")
 
-            pdf.set_font(font_name, "B", 11)
+            pdf.set_font(font_name, "B", 10.5)
             pdf.set_text_color(15, 23, 42)
             pdf.set_xy(17, start_y + 3)
-            pdf.cell(85, 6, txt=fix_ar(f"رقم الملف: #{p_info['patient_id']}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"اسم المريض: {p_info['full_name']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"رقم الملف: #{p_info['patient_id']}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"اسم المريض: {p_info['full_name']}", 90), align="R")
 
             pdf.set_xy(17, start_y + 9)
             pdf.set_font(font_name, "", 10)
-            pdf.cell(85, 6, txt=fix_ar(f"العنوان: {p_info['address']}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"رقم الهاتف: {p_info['phone']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"العنوان: {p_info['address']}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"رقم الهاتف: {p_info['phone']}", 90), align="R")
 
             pdf.set_xy(17, start_y + 15)
             today_str = datetime.date.today().strftime("%Y-%m-%d")
-            pdf.cell(85, 6, txt=fix_ar(f"تاريخ استخراج الكشف: {today_str}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"فترة الكشف: {summary['period']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"تاريخ استخراج الكشف: {today_str}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"فترة الكشف: {summary['period']}", 90), align="R")
             pdf.set_y(start_y + 28)
 
+            # 3 بطاقات: 58 + 3 + 58 + 3 + 58 = 180 مم
             col_w = 58
-            pdf.set_font(font_name, "B", 10)
+            pdf.set_x(15)
+            pdf.set_font(font_name, "B", 9.5)
             pdf.set_fill_color(238, 242, 255)
             pdf.set_text_color(79, 70, 229)
-            pdf.cell(col_w, 8, txt=fix_ar(f"إجمالي العلاجات: {summary['total_cost']:,.2f} ر.ي"), border=1, align="C", fill=True)
+            pdf.cell(col_w, 8, txt=_fit_text(pdf, f"إجمالي العلاجات: {summary['total_cost']:,.2f} ر.ي", col_w), border=1, align="C", fill=True)
             pdf.cell(3, 8, "", ln=False)
 
             pdf.set_fill_color(236, 253, 245)
             pdf.set_text_color(16, 185, 129)
-            pdf.cell(col_w, 8, txt=fix_ar(f"إجمالي المسدد: {summary['total_paid']:,.2f} ر.ي"), border=1, align="C", fill=True)
+            pdf.cell(col_w, 8, txt=_fit_text(pdf, f"إجمالي المسدد: {summary['total_paid']:,.2f} ر.ي", col_w), border=1, align="C", fill=True)
             pdf.cell(3, 8, "", ln=False)
 
             if summary['net_debt'] > 0:
@@ -634,57 +652,51 @@ class StatementsRepository:
                 pdf.set_text_color(22, 101, 52)
                 debt_label = "الحساب خالص بالكامل (0.00)"
 
-            pdf.cell(col_w, 8, txt=fix_ar(debt_label), border=1, align="C", fill=True)
+            pdf.cell(col_w, 8, txt=_fit_text(pdf, debt_label, col_w), border=1, align="C", fill=True)
             pdf.ln(12)
 
+            # مجموع الأعمدة: 25 + 25 + 25 + 69 + 22 + 14 = 180 مم
             headers = ["المتبقي", "المسدد", "التكلفة", "البيان وتفاصيل الإجراء", "التاريخ", "القيد"]
-            widths  = [26, 26, 26, 68, 22, 12]
-            pdf.set_fill_color(15, 23, 42)
-            pdf.set_text_color(255, 255, 255)
-            pdf.set_font(font_name, "B", 10)
-
-            for h, w in zip(headers, widths):
-                pdf.cell(w, 8, txt=fix_ar(h), border=1, align="C", fill=True)
-            pdf.ln()
+            widths = [25, 25, 25, 69, 22, 14]
+            self._draw_table_header(pdf, font_name, headers, widths)
 
             pdf.set_text_color(30, 41, 59)
-            pdf.set_font(font_name, "", 9)
+            pdf.set_font(font_name, "", 8.5)
             row_alt = False
             for it in items:
+                if pdf.get_y() > 265:
+                    pdf.add_page()
+                    self._draw_table_header(pdf, font_name, headers, widths)
+                    pdf.set_text_color(30, 41, 59)
+                    pdf.set_font(font_name, "", 8.5)
+
+                pdf.set_x(15)
                 pdf.set_fill_color(248, 250, 252) if row_alt else pdf.set_fill_color(255, 255, 255)
                 row_alt = not row_alt
                 pdf.cell(widths[0], 7, txt=fix_ar(f"{it['remain']:,.2f}"), border=1, align="C", fill=True)
                 pdf.cell(widths[1], 7, txt=fix_ar(f"{it['paid']:,.2f}"), border=1, align="C", fill=True)
                 pdf.cell(widths[2], 7, txt=fix_ar(f"{it['cost']:,.2f}"), border=1, align="C", fill=True)
-                pdf.cell(widths[3], 7, txt=fix_ar(f"{it['type']} - {it['details']}"), border=1, align="R", fill=True)
+                pdf.cell(widths[3], 7, txt=_fit_text(pdf, f"{it['type']} - {it['details']}", widths[3]), border=1, align="R", fill=True)
                 pdf.cell(widths[4], 7, txt=fix_ar(it['date']), border=1, align="C", fill=True)
                 pdf.cell(widths[5], 7, txt=fix_ar(f"#{it['id']}"), border=1, align="C", fill=True)
                 pdf.ln()
 
             if not items:
-                pdf.cell(180, 10, txt=fix_ar("لا توجد حركات مالية مسجلة لهذا المريض ضمن الفترة المحددة."), border=1, align="C")
+                pdf.set_x(15)
+                pdf.cell(usable_w, 10, txt=fix_ar("لا توجد حركات مالية مسجلة لهذا المريض ضمن الفترة المحددة."), border=1, align="C")
                 pdf.ln()
 
+            pdf.set_x(15)
             pdf.set_font(font_name, "B", 9)
             pdf.set_fill_color(226, 232, 240)
             pdf.set_text_color(15, 23, 42)
             pdf.cell(widths[0], 8, txt=fix_ar(f"{summary['net_debt']:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths[1], 8, txt=fix_ar(f"{summary['total_paid']:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths[2], 8, txt=fix_ar(f"{summary['total_cost']:,.2f}"), border=1, align="C", fill=True)
-            pdf.cell(widths[3] + widths[4] + widths[5], 8, txt=fix_ar("المجموع والإجمالي العام (ر.ي):"), border=1, align="R", fill=True)
+            pdf.cell(sum(widths[3:]), 8, txt=fix_ar("المجموع والإجمالي العام (ر.ي):"), border=1, align="R", fill=True)
             pdf.ln(14)
 
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(100, 116, 139)
-            sign_y = pdf.get_y()
-            if sign_y > 250:
-                pdf.add_page()
-                sign_y = pdf.get_y()
-            pdf.set_xy(15, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("توقيع المحاسب / الإدارة: ........................"), align="L")
-            pdf.set_xy(115, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("ختم العيادة الرسمي: ........................"), align="R")
-
+            self._draw_signatures(pdf, font_name, usable_w, "ختم العيادة الرسمي")
             pdf.output(save_path)
             return True, f"تم استخراج كشف حساب المريض بنجاح:\n{save_path}"
         except Exception as ex:
@@ -740,7 +752,7 @@ class StatementsRepository:
             return False, f"فشل تصدير كشف حساب المريض إلى Excel: {ex}"
 
     # =========================================================================
-    # 8. تصدير كشف حساب المعمل PDF
+    # 8. تصدير كشف حساب المعمل PDF (مضبوط العرض 180 مم)
     # =========================================================================
     def export_lab_statement_pdf(self, lab_id, save_path, start_date=None, end_date=None, clinic_info=None):
         try:
@@ -749,75 +761,44 @@ class StatementsRepository:
                 return False, "تعذر العثور على بيانات المعمل المحدد."
 
             c_info = clinic_info or self.get_clinic_info()
-            pdf = FPDF(orientation='P', unit='mm', format='A4')
-            pdf.set_auto_page_break(auto=True, margin=15)
-            pdf.add_page()
-            _add_clinic_logo_to_pdf(pdf)
-
-            font_path = r"C:\Windows\Fonts\arial.ttf"
-            font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
-            has_ar = os.path.exists(font_path)
-            if has_ar:
-                pdf.add_font("ArabicFont", "", font_path, uni=True)
-                if os.path.exists(font_bold_path):
-                    pdf.add_font("ArabicFont", "B", font_bold_path, uni=True)
-                font_name = "ArabicFont"
-            else:
-                font_name = "Arial"
-
-            pdf.set_font(font_name, "B", 17)
-            pdf.set_text_color(15, 23, 42)
-            pdf.cell(0, 9, txt=fix_ar(c_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
-
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(71, 85, 105)
-            clinic_contact = f"العنوان: {c_info.get('address', 'صنعاء')}   |   هاتف: {c_info.get('phone', '770000000')}"
-            pdf.cell(0, 6, txt=fix_ar(clinic_contact), ln=True, align="C")
-
-            pdf.set_draw_color(16, 185, 129)
-            pdf.set_line_width(0.8)
-            pdf.line(15, pdf.get_y() + 2, 195, pdf.get_y() + 2)
-            pdf.ln(5)
-
-            pdf.set_font(font_name, "B", 14)
-            pdf.set_fill_color(241, 245, 249)
-            pdf.set_text_color(16, 185, 129)
-            pdf.cell(0, 9, txt=fix_ar("🔬 كشف حساب مالي تفصيلي للمعمل المتعاقد"), ln=True, align="C", fill=True)
-            pdf.ln(4)
+            pdf, font_name, usable_w = self._init_pdf(c_info)
+            self._draw_pdf_header(pdf, font_name, c_info, "🔬 كشف حساب مالي تفصيلي للمعمل المتعاقد", (16, 185, 129), usable_w)
 
             pdf.set_draw_color(203, 213, 225)
             pdf.set_line_width(0.3)
             pdf.set_fill_color(248, 250, 252)
             start_y = pdf.get_y()
-            pdf.rect(15, start_y, 180, 24, "DF")
+            pdf.rect(15, start_y, usable_w, 24, "DF")
 
-            pdf.set_font(font_name, "B", 11)
+            pdf.set_font(font_name, "B", 10.5)
             pdf.set_text_color(15, 23, 42)
             pdf.set_xy(17, start_y + 3)
-            pdf.cell(85, 6, txt=fix_ar(f"معرّف المعمل: #{lab_info['lab_id']}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"اسم المعمل: {lab_info['lab_name']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"معرّف المعمل: #{lab_info['lab_id']}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"اسم المعمل: {lab_info['lab_name']}", 90), align="R")
 
             pdf.set_xy(17, start_y + 9)
             pdf.set_font(font_name, "", 10)
-            pdf.cell(85, 6, txt=fix_ar(f"العنوان: {lab_info['address']}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"هاتف المعمل: {lab_info['phone']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"العنوان: {lab_info['address']}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"هاتف المعمل: {lab_info['phone']}", 90), align="R")
 
             pdf.set_xy(17, start_y + 15)
             today_str = datetime.date.today().strftime("%Y-%m-%d")
-            pdf.cell(85, 6, txt=fix_ar(f"تاريخ استخراج الكشف: {today_str}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"فترة الكشف: {summary['period']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"تاريخ استخراج الكشف: {today_str}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"فترة الكشف: {summary['period']}", 90), align="R")
             pdf.set_y(start_y + 28)
 
+            # 3 بطاقات: 58 + 3 + 58 + 3 + 58 = 180 مم
             col_w = 58
-            pdf.set_font(font_name, "B", 10)
+            pdf.set_x(15)
+            pdf.set_font(font_name, "B", 9.5)
             pdf.set_fill_color(238, 242, 255)
             pdf.set_text_color(79, 70, 229)
-            pdf.cell(col_w, 8, txt=fix_ar(f"إجمالي الأوامر: {summary['total_orders_cost']:,.2f} ر.ي"), border=1, align="C", fill=True)
+            pdf.cell(col_w, 8, txt=_fit_text(pdf, f"إجمالي الأوامر: {summary['total_orders_cost']:,.2f} ر.ي", col_w), border=1, align="C", fill=True)
             pdf.cell(3, 8, "", ln=False)
 
             pdf.set_fill_color(236, 253, 245)
             pdf.set_text_color(16, 185, 129)
-            pdf.cell(col_w, 8, txt=fix_ar(f"إجمالي المسدد: {summary['total_paid_amount']:,.2f} ر.ي"), border=1, align="C", fill=True)
+            pdf.cell(col_w, 8, txt=_fit_text(pdf, f"إجمالي المسدد: {summary['total_paid_amount']:,.2f} ر.ي", col_w), border=1, align="C", fill=True)
             pdf.cell(3, 8, "", ln=False)
 
             if summary['net_balance'] > 0:
@@ -829,87 +810,85 @@ class StatementsRepository:
                 pdf.set_text_color(22, 101, 52)
                 lab_bal_lbl = "الحساب خالص بالكامل (0.00)"
 
-            pdf.cell(col_w, 8, txt=fix_ar(lab_bal_lbl), border=1, align="C", fill=True)
+            pdf.cell(col_w, 8, txt=_fit_text(pdf, lab_bal_lbl, col_w), border=1, align="C", fill=True)
             pdf.ln(12)
 
+            pdf.set_x(15)
             pdf.set_font(font_name, "B", 11)
             pdf.set_text_color(15, 23, 42)
-            pdf.cell(0, 7, txt=fix_ar("📋 أولاً: سجل أوامر العمل والتركيبات الطبية"), ln=True, align="R")
+            pdf.cell(usable_w, 7, txt=fix_ar("📋 أولاً: سجل أوامر العمل والتركيبات الطبية"), ln=True, align="R")
             pdf.ln(1)
 
-            headers_ord = ["التكلفة (ر.ي)", "الفاتورة", "المريض", "نوع التركيبة / العمل", "تاريخ الاستلام", "رقم الأمر"]
-            widths_ord  = [30, 22, 45, 48, 23, 12]
-            pdf.set_fill_color(15, 23, 42)
-            pdf.set_text_color(255, 255, 255)
-            pdf.set_font(font_name, "B", 9)
-
-            for h, w in zip(headers_ord, widths_ord):
-                pdf.cell(w, 7, txt=fix_ar(h), border=1, align="C", fill=True)
-            pdf.ln()
+            # مجموع الأعمدة: 28 + 20 + 44 + 51 + 23 + 14 = 180 مم
+            headers_ord = ["التكلفة (ر.ي)", "الفاتورة", "المريض", "نوع التركيبة / العمل", "تاريخ الاستلام", "الأمر"]
+            widths_ord = [28, 20, 44, 51, 23, 14]
+            self._draw_table_header(pdf, font_name, headers_ord, widths_ord, font_size=8.5)
 
             pdf.set_text_color(30, 41, 59)
-            pdf.set_font(font_name, "", 9)
+            pdf.set_font(font_name, "", 8.5)
             row_alt = False
             for o in orders:
+                if pdf.get_y() > 265:
+                    pdf.add_page()
+                    self._draw_table_header(pdf, font_name, headers_ord, widths_ord, font_size=8.5)
+                    pdf.set_text_color(30, 41, 59)
+                    pdf.set_font(font_name, "", 8.5)
+
+                pdf.set_x(15)
                 pdf.set_fill_color(248, 250, 252) if row_alt else pdf.set_fill_color(255, 255, 255)
                 row_alt = not row_alt
                 pdf.cell(widths_ord[0], 6.5, txt=fix_ar(f"{o['cost']:,.2f}"), border=1, align="C", fill=True)
-                pdf.cell(widths_ord[1], 6.5, txt=fix_ar(o['invoice_id']), border=1, align="C", fill=True)
-                pdf.cell(widths_ord[2], 6.5, txt=fix_ar(o['patient_name']), border=1, align="R", fill=True)
-                pdf.cell(widths_ord[3], 6.5, txt=fix_ar(o['work_type']), border=1, align="R", fill=True)
+                pdf.cell(widths_ord[1], 6.5, txt=_fit_text(pdf, o['invoice_id'], widths_ord[1]), border=1, align="C", fill=True)
+                pdf.cell(widths_ord[2], 6.5, txt=_fit_text(pdf, o['patient_name'], widths_ord[2]), border=1, align="R", fill=True)
+                pdf.cell(widths_ord[3], 6.5, txt=_fit_text(pdf, o['work_type'], widths_ord[3]), border=1, align="R", fill=True)
                 pdf.cell(widths_ord[4], 6.5, txt=fix_ar(o['receive_date']), border=1, align="C", fill=True)
                 pdf.cell(widths_ord[5], 6.5, txt=fix_ar(f"#{o['order_id']}"), border=1, align="C", fill=True)
                 pdf.ln()
 
             if not orders:
-                pdf.cell(180, 8, txt=fix_ar("لا توجد أوامر عمل مسجلة للمعمل في الفترة المحددة."), border=1, align="C")
+                pdf.set_x(15)
+                pdf.cell(usable_w, 8, txt=fix_ar("لا توجد أوامر عمل مسجلة للمعمل في الفترة المحددة."), border=1, align="C")
                 pdf.ln()
 
             pdf.ln(6)
+            pdf.set_x(15)
             pdf.set_font(font_name, "B", 11)
             pdf.set_text_color(15, 23, 42)
-            pdf.cell(0, 7, txt=fix_ar("💵 ثانياً: سجل الدفعات وسندات الصرف المسددة للمعمل"), ln=True, align="R")
+            pdf.cell(usable_w, 7, txt=fix_ar("💵 ثانياً: سجل الدفعات وسندات الصرف المسددة للمعمل"), ln=True, align="R")
             pdf.ln(1)
 
-            headers_pay = ["المبلغ المسدد (ر.ي)", "ملاحظات وبيان الصرف", "طريقة السداد", "تاريخ السداد", "رقم السند"]
-            widths_pay  = [35, 75, 30, 25, 15]
-            pdf.set_fill_color(16, 185, 129)
-            pdf.set_text_color(255, 255, 255)
-            pdf.set_font(font_name, "B", 9)
-
-            for h, w in zip(headers_pay, widths_pay):
-                pdf.cell(w, 7, txt=fix_ar(h), border=1, align="C", fill=True)
-            pdf.ln()
+            # مجموع الأعمدة: 34 + 74 + 30 + 25 + 17 = 180 مم
+            headers_pay = ["المبلغ المسدد (ر.ي)", "ملاحظات وبيان الصرف", "طريقة السداد", "تاريخ السداد", "السند"]
+            widths_pay = [34, 74, 30, 25, 17]
+            self._draw_table_header(pdf, font_name, headers_pay, widths_pay, fill_rgb=(16, 185, 129), font_size=8.5)
 
             pdf.set_text_color(30, 41, 59)
-            pdf.set_font(font_name, "", 9)
+            pdf.set_font(font_name, "", 8.5)
             row_alt = False
             for p in payments:
+                if pdf.get_y() > 265:
+                    pdf.add_page()
+                    self._draw_table_header(pdf, font_name, headers_pay, widths_pay, fill_rgb=(16, 185, 129), font_size=8.5)
+                    pdf.set_text_color(30, 41, 59)
+                    pdf.set_font(font_name, "", 8.5)
+
+                pdf.set_x(15)
                 pdf.set_fill_color(248, 250, 252) if row_alt else pdf.set_fill_color(255, 255, 255)
                 row_alt = not row_alt
                 pdf.cell(widths_pay[0], 6.5, txt=fix_ar(f"{p['amount']:,.2f}"), border=1, align="C", fill=True)
-                pdf.cell(widths_pay[1], 6.5, txt=fix_ar(p['notes'] or "دفعة نقدية"), border=1, align="R", fill=True)
-                pdf.cell(widths_pay[2], 6.5, txt=fix_ar(p['method']), border=1, align="C", fill=True)
+                pdf.cell(widths_pay[1], 6.5, txt=_fit_text(pdf, p['notes'] or "دفعة نقدية", widths_pay[1]), border=1, align="R", fill=True)
+                pdf.cell(widths_pay[2], 6.5, txt=_fit_text(pdf, p['method'], widths_pay[2]), border=1, align="C", fill=True)
                 pdf.cell(widths_pay[3], 6.5, txt=fix_ar(p['date']), border=1, align="C", fill=True)
                 pdf.cell(widths_pay[4], 6.5, txt=fix_ar(f"#{p['voucher_no']}"), border=1, align="C", fill=True)
                 pdf.ln()
 
             if not payments:
-                pdf.cell(180, 8, txt=fix_ar("لا توجد دفعات مالية مسددة للمعمل في الفترة المحددة."), border=1, align="C")
+                pdf.set_x(15)
+                pdf.cell(usable_w, 8, txt=fix_ar("لا توجد دفعات مالية مسددة للمعمل في الفترة المحددة."), border=1, align="C")
                 pdf.ln()
 
             pdf.ln(10)
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(100, 116, 139)
-            sign_y = pdf.get_y()
-            if sign_y > 250:
-                pdf.add_page()
-                sign_y = pdf.get_y()
-            pdf.set_xy(15, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("توقيع المحاسب / الإدارة: ........................"), align="L")
-            pdf.set_xy(115, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("توقيع ومصادقة مندوب المعمل: ........................"), align="R")
-
+            self._draw_signatures(pdf, font_name, usable_w, "توقيع ومصادقة مندوب المعمل")
             pdf.output(save_path)
             return True, f"تم استخراج كشف حساب المعمل بنجاح:\n{save_path}"
         except Exception as ex:
@@ -977,7 +956,7 @@ class StatementsRepository:
             return False, f"فشل تصدير كشف حساب المعمل إلى Excel: {ex}"
 
     # =========================================================================
-    # 10. تصدير كشف حساب المشتريات PDF
+    # 10. تصدير كشف حساب المشتريات PDF (مضبوط العرض 180 مم بالكامل)
     # =========================================================================
     def export_purchase_statement_pdf(self, supplier_id, save_path, clinic_info=None):
         try:
@@ -986,79 +965,45 @@ class StatementsRepository:
                 return False, "تعذر العثور على بيانات المورد المحدد."
 
             c_info = clinic_info or self.get_clinic_info()
-            pdf = FPDF(orientation='P', unit='mm', format='A4')
-            pdf.set_left_margin(15)
-            pdf.set_right_margin(15)
-            pdf.set_auto_page_break(auto=True, margin=15)
-            pdf.add_page()
-            _add_clinic_logo_to_pdf(pdf)
+            pdf, font_name, usable_w = self._init_pdf(c_info)
+            self._draw_pdf_header(pdf, font_name, c_info, "📦 كشف حساب مالي تفصيلي لفواتير المشتريات", (79, 70, 229), usable_w)
 
-            font_path = r"C:\Windows\Fonts\arial.ttf"
-            font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
-            has_ar = os.path.exists(font_path)
-            if has_ar:
-                pdf.add_font("ArabicFont", "", font_path, uni=True)
-                if os.path.exists(font_bold_path):
-                    pdf.add_font("ArabicFont", "B", font_bold_path, uni=True)
-                font_name = "ArabicFont"
-            else:
-                font_name = "Arial"
-
-            pdf.set_font(font_name, "B", 17)
-            pdf.set_text_color(15, 23, 42)
-            pdf.cell(0, 9, txt=fix_ar(c_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
-
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(71, 85, 105)
-            clinic_contact = f"العنوان: {c_info.get('address', 'صنعاء')}    |    هاتف: {c_info.get('phone', '770000000')}"
-            pdf.cell(0, 6, txt=fix_ar(clinic_contact), ln=True, align="C")
-
-            pdf.set_draw_color(79, 70, 229)
-            pdf.set_line_width(0.8)
-            pdf.line(15, pdf.get_y() + 2, 195, pdf.get_y() + 2)
-            pdf.ln(5)
-
-            pdf.set_font(font_name, "B", 14)
-            pdf.set_fill_color(241, 245, 249)
-            pdf.set_text_color(79, 70, 229)
-            pdf.cell(0, 9, txt=fix_ar("📦 كشف حساب مالي تفصيلي لفواتير المشتريات"), ln=True, align="C", fill=True)
-            pdf.ln(4)
-
-            widths_pur = [22, 22, 22, 22, 52, 22, 18, 18] 
-            total_table_width = sum(widths_pur)
+            # مجموع الأعمدة = 21 + 21 + 21 + 18 + 49 + 20 + 14 + 16 = 180 مم بالضبط
+            widths_pur = [21, 21, 21, 18, 49, 20, 14, 16]
 
             pdf.set_draw_color(203, 213, 225)
             pdf.set_line_width(0.3)
             pdf.set_fill_color(248, 250, 252)
             start_y = pdf.get_y()
-            pdf.rect(15, start_y, total_table_width, 20, "DF")
+            pdf.rect(15, start_y, usable_w, 20, "DF")
 
-            pdf.set_font(font_name, "B", 11)
+            pdf.set_font(font_name, "B", 10.5)
             pdf.set_text_color(15, 23, 42)
             pdf.set_xy(17, start_y + 3)
-            pdf.cell(85, 6, txt=fix_ar(f"معرف المورد: #{sup_info['supplier_id']}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"اسم المورد: {sup_info['supplier_name']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"معرف المورد: #{sup_info['supplier_id']}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"اسم المورد: {sup_info['supplier_name']}", 90), align="R")
 
             pdf.set_xy(17, start_y + 11)
             pdf.set_font(font_name, "", 10)
-            pdf.cell(85, 6, txt=fix_ar(f"رقم الهاتف: {sup_info.get('phone', 'بدون')}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"رقم الهاتف: {sup_info.get('phone', 'بدون')}", 86), align="R")
             today_str = datetime.date.today().strftime("%Y-%m-%d")
-            pdf.cell(90, 6, txt=fix_ar(f"تاريخ التقرير: {today_str}"), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"تاريخ التقرير: {today_str}", 90), align="R")
             pdf.set_y(start_y + 24)
 
             headers_pur = ["المتبقي", "المسدد", "الإجمالي", "رقم السند", "البيان والتفاصيل", "التاريخ", "النوع", "الفاتورة"]
-            pdf.set_fill_color(15, 23, 42)
-            pdf.set_text_color(255, 255, 255)
-            pdf.set_font(font_name, "B", 9)
-
-            for h, w in zip(headers_pur, widths_pur):
-                pdf.cell(w, 7, txt=fix_ar(h), border=1, align="C", fill=True)
-            pdf.ln()
+            self._draw_table_header(pdf, font_name, headers_pur, widths_pur, font_size=8.5)
 
             pdf.set_text_color(30, 41, 59)
             pdf.set_font(font_name, "", 8)
             row_alt = False
             for r in rows:
+                if pdf.get_y() > 265:
+                    pdf.add_page()
+                    self._draw_table_header(pdf, font_name, headers_pur, widths_pur, font_size=8.5)
+                    pdf.set_text_color(30, 41, 59)
+                    pdf.set_font(font_name, "", 8)
+
+                pdf.set_x(15)
                 pdf.set_fill_color(248, 250, 252) if row_alt else pdf.set_fill_color(255, 255, 255)
                 row_alt = not row_alt
 
@@ -1067,38 +1012,30 @@ class StatementsRepository:
                 pdf.cell(widths_pur[0], 7, txt=fix_ar(f"{float(r['remaining_amount'] or 0):,.2f}"), border=1, align="C", fill=True)
                 pdf.cell(widths_pur[1], 7, txt=fix_ar(f"{float(r['paid_amount'] or 0):,.2f}"), border=1, align="C", fill=True)
                 pdf.cell(widths_pur[2], 7, txt=fix_ar(f"{float(r['total_amount'] or 0):,.2f}"), border=1, align="C", fill=True)
-                pdf.cell(widths_pur[3], 7, txt=fix_ar(str(r['supplier_voucher_no'])), border=1, align="C", fill=True)
-                pdf.cell(widths_pur[4], 7, txt=fix_ar(r['description'] or "مشتريات عامة"), border=1, align="R", fill=True)
+                pdf.cell(widths_pur[3], 7, txt=_fit_text(pdf, str(r['supplier_voucher_no']), widths_pur[3]), border=1, align="C", fill=True)
+                pdf.cell(widths_pur[4], 7, txt=_fit_text(pdf, r['description'] or "مشتريات عامة", widths_pur[4]), border=1, align="R", fill=True)
                 pdf.cell(widths_pur[5], 7, txt=fix_ar(str(r['purchase_date'])), border=1, align="C", fill=True)
                 pdf.cell(widths_pur[6], 7, txt=fix_ar(p_type_txt), border=1, align="C", fill=True)
-                pdf.cell(widths_pur[7], 7, txt=fix_ar(str(r['invoice_number'])), border=1, align="C", fill=True)
+                pdf.cell(widths_pur[7], 7, txt=_fit_text(pdf, str(r['invoice_number']), widths_pur[7]), border=1, align="C", fill=True)
                 pdf.ln()
 
             if not rows:
-                pdf.cell(total_table_width, 8, txt=fix_ar("لا توجد فواتير مشتريات مسجلة لهذا المورد."), border=1, align="C")
+                pdf.set_x(15)
+                pdf.cell(usable_w, 8, txt=fix_ar("لا توجد فواتير مشتريات مسجلة لهذا المورد."), border=1, align="C")
                 pdf.ln()
 
-            pdf.set_font(font_name, "B", 9)
+            pdf.set_x(15)
+            pdf.set_font(font_name, "B", 8.5)
             pdf.set_fill_color(226, 232, 240)
             pdf.set_text_color(15, 23, 42)
 
             pdf.cell(widths_pur[0], 8, txt=fix_ar(f"{summary['total_remain']:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths_pur[1], 8, txt=fix_ar(f"{summary['total_paid']:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths_pur[2], 8, txt=fix_ar(f"{summary['total_purchases']:,.2f}"), border=1, align="C", fill=True)
-            pdf.cell(widths_pur[3] + widths_pur[4] + widths_pur[5] + widths_pur[6] + widths_pur[7], 8, txt=fix_ar("المجاميع العامة (ر.ي):"), border=1, align="R", fill=True)
+            pdf.cell(sum(widths_pur[3:]), 8, txt=fix_ar("المجاميع العامة (ر.ي):"), border=1, align="R", fill=True)
             pdf.ln(14)
 
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(100, 116, 139)
-            sign_y = pdf.get_y()
-            if sign_y > 250:
-                pdf.add_page()
-                sign_y = pdf.get_y()
-            pdf.set_xy(15, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("توقيع المحاسب / الإدارة: ........................"), align="L")
-            pdf.set_xy(115, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("توقيع ومصادقة المورد: ........................"), align="R")
-
+            self._draw_signatures(pdf, font_name, usable_w, "توقيع ومصادقة المورد")
             pdf.output(save_path)
             return True, f"تم استخراج كشف حساب المشتريات PDF بنجاح:\n{save_path}"
         except Exception as ex:
@@ -1153,7 +1090,7 @@ class StatementsRepository:
             return False, f"فشل تصدير كشف حساب المشتريات إلى Excel: {ex}"
 
     # =========================================================================
-    # 12. تصدير كشف حساب الموظف PDF
+    # 12. تصدير كشف حساب الموظف PDF (مضبوط العرض 180 مم)
     # =========================================================================
     def export_staff_statement_pdf(self, emp_id, save_path, start_date=None, end_date=None, clinic_info=None):
         try:
@@ -1162,90 +1099,50 @@ class StatementsRepository:
                 return False, "تعذر العثور على بيانات الموظف المحدد."
 
             c_info = clinic_info or self.get_clinic_info()
-            pdf = FPDF(orientation='P', unit='mm', format='A4')
-            pdf.set_left_margin(15)
-            pdf.set_right_margin(15)
-            pdf.set_auto_page_break(auto=True, margin=15)
-            pdf.add_page()
-            _add_clinic_logo_to_pdf(pdf)
+            pdf, font_name, usable_w = self._init_pdf(c_info)
+            self._draw_pdf_header(pdf, font_name, c_info, "👥 كشف حساب مالي تفصيلي للموظف", (99, 102, 241), usable_w)
 
-            font_path = r"C:\Windows\Fonts\arial.ttf"
-            font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
-            has_ar = os.path.exists(font_path)
-            if has_ar:
-                pdf.add_font("ArabicFont", "", font_path, uni=True)
-                if os.path.exists(font_bold_path):
-                    pdf.add_font("ArabicFont", "B", font_bold_path, uni=True)
-                font_name = "ArabicFont"
-            else:
-                font_name = "Arial"
-
-            pdf.set_font(font_name, "B", 17)
-            pdf.set_text_color(15, 23, 42)
-            pdf.cell(0, 9, txt=fix_ar(c_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
-
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(71, 85, 105)
-            clinic_contact = f"العنوان: {c_info.get('address', 'صنعاء')}    |    هاتف: {c_info.get('phone', '770000000')}"
-            pdf.cell(0, 6, txt=fix_ar(clinic_contact), ln=True, align="C")
-
-            pdf.set_draw_color(99, 102, 241)
-            pdf.set_line_width(0.8)
-            pdf.line(15, pdf.get_y() + 2, 195, pdf.get_y() + 2)
-            pdf.ln(5)
-
-            pdf.set_font(font_name, "B", 14)
-            pdf.set_fill_color(241, 245, 249)
-            pdf.set_text_color(99, 102, 241)
-            pdf.cell(0, 9, txt=fix_ar("👥 كشف حساب مالي تفصيلي للموظف"), ln=True, align="C", fill=True)
-            pdf.ln(4)
-
-            widths_tr = [26, 26, 26, 68, 22, 12]
-            total_table_width = sum(widths_tr)
+            # مجموع الأعمدة: 25 + 25 + 25 + 69 + 22 + 14 = 180 مم
+            widths_tr = [25, 25, 25, 69, 22, 14]
 
             pdf.set_draw_color(203, 213, 225)
             pdf.set_line_width(0.3)
             pdf.set_fill_color(248, 250, 252)
             start_y = pdf.get_y()
-            pdf.rect(15, start_y, total_table_width, 24, "DF")
+            pdf.rect(15, start_y, usable_w, 24, "DF")
 
-            pdf.set_font(font_name, "B", 11)
+            pdf.set_font(font_name, "B", 10.5)
             pdf.set_text_color(15, 23, 42)
             pdf.set_xy(17, start_y + 3)
-            pdf.cell(85, 6, txt=fix_ar(f"رقم الموظف: #{emp_info['emp_id']}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"اسم الموظف: {emp_info['full_name']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"رقم الموظف: #{emp_info['emp_id']}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"اسم الموظف: {emp_info['full_name']}", 90), align="R")
 
             pdf.set_xy(17, start_y + 9)
             pdf.set_font(font_name, "", 10)
-            pdf.cell(85, 6, txt=fix_ar(f"الوظيفة: {emp_info['job_title']}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"رقم الهاتف: {emp_info['phone']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"الوظيفة: {emp_info['job_title']}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"رقم الهاتف: {emp_info['phone']}", 90), align="R")
 
             pdf.set_xy(17, start_y + 15)
             today_str = datetime.date.today().strftime("%Y-%m-%d")
-            pdf.cell(85, 6, txt=fix_ar(f"تاريخ استخراج الكشف: {today_str}"), align="R")
-            pdf.cell(90, 6, txt=fix_ar(f"فترة الكشف: {summary['period']}"), align="R")
+            pdf.cell(86, 6, txt=_fit_text(pdf, f"تاريخ استخراج الكشف: {today_str}", 86), align="R")
+            pdf.cell(90, 6, txt=_fit_text(pdf, f"فترة الكشف: {summary['period']}", 90), align="R")
             pdf.set_y(start_y + 28)
 
             headers_tr = ["الرصيد", "له (دائن)", "عليه (مدين)", "البيان وتفاصيل الحركة", "التاريخ", "الرقم"]
-            pdf.set_fill_color(15, 23, 42)
-            pdf.set_text_color(255, 255, 255)
-            pdf.set_font(font_name, "B", 9)
-
-            for h, w in zip(headers_tr, widths_tr):
-                pdf.cell(w, 7, txt=fix_ar(h), border=1, align="C", fill=True)
-            pdf.ln()
+            self._draw_table_header(pdf, font_name, headers_tr, widths_tr, font_size=8.5)
 
             base_sal = float(emp_info['base_salary'] or 0)
             running_balance = base_sal
 
+            pdf.set_x(15)
             pdf.set_text_color(30, 41, 59)
-            pdf.set_font(font_name, "", 9)
+            pdf.set_font(font_name, "", 8.5)
             pdf.set_fill_color(255, 255, 255)
 
             pdf.cell(widths_tr[0], 7, txt=fix_ar(f"{running_balance:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths_tr[1], 7, txt=fix_ar(f"{base_sal:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths_tr[2], 7, txt=fix_ar("-"), border=1, align="C", fill=True)
-            pdf.cell(widths_tr[3], 7, txt=fix_ar("الراتب الأساسي الافتتاحي"), border=1, align="R", fill=True)
+            pdf.cell(widths_tr[3], 7, txt=_fit_text(pdf, "الراتب الأساسي الافتتاحي", widths_tr[3]), border=1, align="R", fill=True)
             pdf.cell(widths_tr[4], 7, txt=fix_ar(emp_info['hire_date'] or "-"), border=1, align="C", fill=True)
             pdf.cell(widths_tr[5], 7, txt=fix_ar("-"), border=1, align="C", fill=True)
             pdf.ln()
@@ -1255,6 +1152,13 @@ class StatementsRepository:
             total_credit = base_sal
 
             for tr in transactions:
+                if pdf.get_y() > 265:
+                    pdf.add_page()
+                    self._draw_table_header(pdf, font_name, headers_tr, widths_tr, font_size=8.5)
+                    pdf.set_text_color(30, 41, 59)
+                    pdf.set_font(font_name, "", 8.5)
+
+                pdf.set_x(15)
                 pdf.set_fill_color(248, 250, 252) if row_alt else pdf.set_fill_color(255, 255, 255)
                 row_alt = not row_alt
 
@@ -1275,36 +1179,28 @@ class StatementsRepository:
                 pdf.cell(widths_tr[0], 7, txt=fix_ar(f"{running_balance:,.2f}"), border=1, align="C", fill=True)
                 pdf.cell(widths_tr[1], 7, txt=fix_ar(f"{credit_val:,.2f}" if credit_val > 0 else "-"), border=1, align="C", fill=True)
                 pdf.cell(widths_tr[2], 7, txt=fix_ar(f"{debit_val:,.2f}" if debit_val > 0 else "-"), border=1, align="C", fill=True)
-                pdf.cell(widths_tr[3], 7, txt=fix_ar(f"{t_type}: {tr['description']}"), border=1, align="R", fill=True)
+                pdf.cell(widths_tr[3], 7, txt=_fit_text(pdf, f"{t_type}: {tr['description']}", widths_tr[3]), border=1, align="R", fill=True)
                 pdf.cell(widths_tr[4], 7, txt=fix_ar(tr['date']), border=1, align="C", fill=True)
                 pdf.cell(widths_tr[5], 7, txt=fix_ar(f"#{tr['transaction_id']}"), border=1, align="C", fill=True)
                 pdf.ln()
 
             if not transactions and base_sal == 0:
-                pdf.cell(total_table_width, 8, txt=fix_ar("لا توجد حركات مالية مسجلة لهذا الموظف في الفترة المحددة."), border=1, align="C")
+                pdf.set_x(15)
+                pdf.cell(usable_w, 8, txt=fix_ar("لا توجد حركات مالية مسجلة لهذا الموظف في الفترة المحددة."), border=1, align="C")
                 pdf.ln()
 
-            pdf.set_font(font_name, "B", 9)
+            pdf.set_x(15)
+            pdf.set_font(font_name, "B", 8.5)
             pdf.set_fill_color(226, 232, 240)
             pdf.set_text_color(15, 23, 42)
 
             pdf.cell(widths_tr[0], 8, txt=fix_ar(f"{running_balance:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths_tr[1], 8, txt=fix_ar(f"{total_credit:,.2f}"), border=1, align="C", fill=True)
             pdf.cell(widths_tr[2], 8, txt=fix_ar(f"{total_debit:,.2f}"), border=1, align="C", fill=True)
-            pdf.cell(widths_tr[3] + widths_tr[4] + widths_tr[5], 8, txt=fix_ar("المجاميع النهائية وصافي الراتب المتبقي للصرف (ر.ي):"), border=1, align="R", fill=True)
+            pdf.cell(sum(widths_tr[3:]), 8, txt=fix_ar("المجاميع النهائية وصافي الراتب المتبقي للصرف (ر.ي):"), border=1, align="R", fill=True)
             pdf.ln(14)
 
-            pdf.set_font(font_name, "", 10)
-            pdf.set_text_color(100, 116, 139)
-            sign_y = pdf.get_y()
-            if sign_y > 250:
-                pdf.add_page()
-                sign_y = pdf.get_y()
-            pdf.set_xy(15, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("توقيع المحاسب / الإدارة: ........................"), align="L")
-            pdf.set_xy(115, sign_y)
-            pdf.cell(80, 6, txt=fix_ar("توقيع ومصادقة الموظف: ........................"), align="R")
-
+            self._draw_signatures(pdf, font_name, usable_w, "توقيع ومصادقة الموظف")
             pdf.output(save_path)
             return True, f"تم استخراج كشف حساب الموظف بنجاح:\n{save_path}"
         except Exception as ex:

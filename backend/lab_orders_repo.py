@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class LabOrdersRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_order(self, lab_id, patient_id, emp_id, work_type, total_cost, receive_date, delivery_date, notes, invoice_id=None):
         """إضافة أمر معمل/تركيبة جديد مع التأكد من حفظ الفاتورة والملاحظات بدقة"""

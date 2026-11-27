@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class DailyCashRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_cash_entry(self, transaction_type, amount, reference_id, description, emp_id, transaction_date):
         """إضافة حركة نقدية جديدة إلى جدول daily_cash"""

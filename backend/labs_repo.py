@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class LabsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_lab(self, lab_name, address, phone):
         """إضافة معمل جديد"""

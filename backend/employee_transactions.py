@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class EmployeeTransactionsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_transaction(self, emp_id, transaction_type, amount, transaction_date, description):
         """إضافة معاملة مالية جديدة للموظف (راتب، سلفة، مكافأة...)"""
