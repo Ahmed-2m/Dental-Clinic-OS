@@ -5,6 +5,7 @@ import customtkinter as ctk
 from backend.purchases_repo import PurchasesRepository
 from ui.theme import THEME, get_font
 
+
 class PurchasesView(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, fg_color="transparent")
@@ -13,7 +14,7 @@ class PurchasesView(ctk.CTkFrame):
         self.selected_supplier_id = None
         self.selected_purchase_id = None
         self.selected_payment_id = None
-        
+
         self.supplier_map = {}
         self.purchase_map = {}
 
@@ -29,7 +30,7 @@ class PurchasesView(ctk.CTkFrame):
             segmented_button_selected_hover_color=THEME["primary_hover"],
             segmented_button_unselected_color=THEME["bg_card_secondary"],
             segmented_button_unselected_hover_color=THEME["bg_card_hover"],
-            text_color=THEME["text_light"]
+            text_color=THEME["text_primary"],
         )
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
 
@@ -78,10 +79,30 @@ class PurchasesView(ctk.CTkFrame):
         self.sup_notes_entry = ctk.CTkEntry(row2, width=350, height=32, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
         self.sup_notes_entry.pack(side="right", padx=(0, 16))
 
-        self.btn_save_sup = ctk.CTkButton(row2, text="💾 حفظ المورد", width=130, height=32, fg_color=THEME["success"], hover_color=THEME["success_hover"], font=get_font(size=12, weight="bold"), command=self.save_new_supplier)
+        self.btn_save_sup = ctk.CTkButton(
+            row2,
+            text="💾 حفظ المورد",
+            width=130,
+            height=32,
+            fg_color=THEME["success"],
+            hover_color=THEME["success_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"),
+            command=self.save_new_supplier,
+        )
         self.btn_save_sup.pack(side="left", padx=5)
 
-        self.btn_cancel_sup = ctk.CTkButton(row2, text="❌ إلغاء التعديل", width=110, height=32, fg_color=THEME["danger"], hover_color=THEME["danger_hover"], font=get_font(size=11), command=self.reset_supplier_form)
+        self.btn_cancel_sup = ctk.CTkButton(
+            row2,
+            text="❌ إلغاء التعديل",
+            width=110,
+            height=32,
+            fg_color=THEME["danger"],
+            hover_color=THEME["danger_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=11),
+            command=self.reset_supplier_form,
+        )
 
         self.sup_status_lbl = ctk.CTkLabel(row2, text="", font=get_font(size=11))
         self.sup_status_lbl.pack(side="left", padx=10)
@@ -124,7 +145,7 @@ class PurchasesView(ctk.CTkFrame):
         self.sup_address_entry.delete(0, "end")
         self.sup_notes_entry.delete(0, "end")
         self.sup_form_title_lbl.configure(text="➕ إضافة مورد جديد المتعاقد معهم:")
-        self.btn_save_sup.configure(text="💾 حفظ المورد", fg_color=THEME["success"])
+        self.btn_save_sup.configure(text="💾 حفظ المورد", fg_color=THEME["success"], hover_color=THEME["success_hover"])
         self.btn_cancel_sup.pack_forget()
 
     def edit_supplier_row(self, s):
@@ -139,7 +160,7 @@ class PurchasesView(ctk.CTkFrame):
         self.sup_notes_entry.insert(0, s[4] or "")
 
         self.sup_form_title_lbl.configure(text=f"✏️ تعديل بيانات المورد (معرف #{s[0]}):")
-        self.btn_save_sup.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"])
+        self.btn_save_sup.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"], hover_color=THEME["warning_hover"])
         self.btn_cancel_sup.pack(side="left", padx=5)
 
     def delete_supplier_row(self, sup_id, sup_name):
@@ -160,17 +181,37 @@ class PurchasesView(ctk.CTkFrame):
             for s in suppliers:
                 card = ctk.CTkFrame(self.sup_scroll, fg_color=THEME["bg_app"], corner_radius=8, border_width=1, border_color=THEME["border"])
                 card.pack(fill="x", pady=3, padx=5)
-                
+
                 row = ctk.CTkFrame(card, fg_color="transparent")
                 row.pack(fill="x", padx=12, pady=6)
-                
+
                 txt = f"#{s[0]} | المورد: {s[1]} | هاتف: {s[3]} | العنوان: {s[2]} | المديونية المتبقية: {float(s[5]):,.2f} ر.ي"
                 ctk.CTkLabel(row, text=txt, font=get_font(size=11, weight="bold"), text_color=THEME["text_primary"], anchor="e").pack(side="right", padx=5)
 
-                btn_del = ctk.CTkButton(row, text="🗑️ حذف", width=65, height=28, fg_color=THEME["danger"], hover_color=THEME["danger_hover"], font=get_font(size=10), command=lambda sid=s[0], sname=s[1]: self.delete_supplier_row(sid, sname))
+                btn_del = ctk.CTkButton(
+                    row,
+                    text="🗑️ حذف",
+                    width=65,
+                    height=28,
+                    fg_color=THEME["danger"],
+                    hover_color=THEME["danger_hover"],
+                    text_color=THEME["text_light"],
+                    font=get_font(size=10),
+                    command=lambda sid=s[0], sname=s[1]: self.delete_supplier_row(sid, sname),
+                )
                 btn_del.pack(side="left", padx=3)
 
-                btn_edit = ctk.CTkButton(row, text="✏️ تعديل", width=65, height=28, fg_color=THEME["warning"], hover_color="darkorange", font=get_font(size=10), command=lambda sup_obj=s: self.edit_supplier_row(sup_obj))
+                btn_edit = ctk.CTkButton(
+                    row,
+                    text="✏️ تعديل",
+                    width=65,
+                    height=28,
+                    fg_color=THEME["warning"],
+                    hover_color=THEME["warning_hover"],
+                    text_color=THEME["text_light"],
+                    font=get_font(size=10),
+                    command=lambda sup_obj=s: self.edit_supplier_row(sup_obj),
+                )
                 btn_edit.pack(side="left", padx=3)
         else:
             ctk.CTkLabel(self.sup_scroll, text="لا توجد موردين مسجلين حالياً.", font=get_font(size=11), text_color=THEME["text_muted"]).pack(pady=20)
@@ -198,7 +239,18 @@ class PurchasesView(ctk.CTkFrame):
         self.pay_voucher_entry = ctk.CTkEntry(row1, width=150, height=32, justify="center", fg_color=THEME["bg_app"], border_color=THEME["border"])
         self.pay_voucher_entry.pack(side="right", padx=(0, 16))
 
-        ctk.CTkButton(row1, text="🔄 تحديث", width=90, height=32, fg_color=THEME["bg_app"], hover_color=THEME["bg_card_hover"], border_width=1, border_color=THEME["border"], command=self.load_payment_suppliers_dropdown).pack(side="right", padx=(0, 10))
+        ctk.CTkButton(
+            row1,
+            text="🔄 تحديث",
+            width=90,
+            height=32,
+            fg_color=THEME["bg_app"],
+            hover_color=THEME["bg_card_hover"],
+            text_color=THEME["text_primary"],
+            border_width=1,
+            border_color=THEME["border"],
+            command=self.load_payment_suppliers_dropdown,
+        ).pack(side="right", padx=(0, 10))
 
         row2 = ctk.CTkFrame(form_box, fg_color="transparent")
         row2.pack(fill="x", padx=14, pady=(6, 12))
@@ -212,10 +264,30 @@ class PurchasesView(ctk.CTkFrame):
         self.pay_date_entry.pack(side="right", padx=(0, 16))
         self.pay_date_entry.insert(0, datetime.date.today().strftime("%Y-%m-%d"))
 
-        self.btn_save_pay = ctk.CTkButton(row2, text="✅ تأكيد وحفظ الدفعة والسند", width=170, height=32, fg_color=THEME["success"], hover_color=THEME["success_hover"], font=get_font(size=12, weight="bold"), command=self.save_supplier_payment)
+        self.btn_save_pay = ctk.CTkButton(
+            row2,
+            text="✅ تأكيد وحفظ الدفعة والسند",
+            width=170,
+            height=32,
+            fg_color=THEME["success"],
+            hover_color=THEME["success_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"),
+            command=self.save_supplier_payment,
+        )
         self.btn_save_pay.pack(side="left", padx=5)
 
-        self.btn_cancel_pay = ctk.CTkButton(row2, text="❌ إلغاء", width=100, height=32, fg_color=THEME["danger"], hover_color=THEME["danger_hover"], font=get_font(size=11), command=self.reset_payment_form)
+        self.btn_cancel_pay = ctk.CTkButton(
+            row2,
+            text="❌ إلغاء",
+            width=100,
+            height=32,
+            fg_color=THEME["danger"],
+            hover_color=THEME["danger_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=11),
+            command=self.reset_payment_form,
+        )
 
         self.pay_status_lbl = ctk.CTkLabel(row2, text="", font=get_font(size=11))
         self.pay_status_lbl.pack(side="left", padx=10)
@@ -225,7 +297,7 @@ class PurchasesView(ctk.CTkFrame):
 
         self.summary_row = ctk.CTkFrame(list_box, fg_color="transparent")
         self.summary_row.pack(fill="x", padx=16, pady=(10, 4))
-        
+
         self.summary_lbl = ctk.CTkLabel(self.summary_row, text="", font=get_font(size=12, weight="bold"), text_color=THEME["teal"])
         self.summary_lbl.pack(anchor="e")
 
@@ -244,14 +316,14 @@ class PurchasesView(ctk.CTkFrame):
             display_txt = f"{s[1]} (معرف #{s[0]})"
             self.supplier_pay_map[display_txt] = s[0]
             values.append(display_txt)
-        
+
         if values:
             self.combo_pay_supplier.configure(values=values)
             self.combo_pay_supplier.set(values[0])
         else:
             self.combo_pay_supplier.configure(values=["لا توجد موردين مسجلين"])
             self.combo_pay_supplier.set("لا توجد موردين مسجلين")
-        
+
         self.load_payments_history()
 
     def save_supplier_payment(self):
@@ -259,7 +331,7 @@ class PurchasesView(ctk.CTkFrame):
         if choice not in self.supplier_pay_map:
             self.pay_status_lbl.configure(text="يرجى اختيار مورد صحيح.", text_color=THEME["danger"])
             return
-        
+
         supplier_id = self.supplier_pay_map[choice]
         try:
             amount_to_pay = float(self.pay_amount_entry.get().strip())
@@ -275,7 +347,6 @@ class PurchasesView(ctk.CTkFrame):
         p_date = self.pay_date_entry.get().strip() or datetime.date.today().strftime("%Y-%m-%d")
 
         if self.selected_payment_id:
-            # تعديل سند صرف موجود
             ok, msg = self.repo.update_supplier_payment(self.selected_payment_id, amount_to_pay, p_date, voucher_no)
             self.pay_status_lbl.configure(text=msg, text_color=THEME["success"] if ok else THEME["danger"])
             if ok:
@@ -284,7 +355,6 @@ class PurchasesView(ctk.CTkFrame):
                 self.load_invoices_history()
                 self.load_suppliers_view()
         else:
-            # إضافة دفعة جديدة وتوزيعها على الفواتير المتبقية
             invoices = self.repo.get_purchases_list()
             supplier_invoices = [inv for inv in invoices if inv[2] == supplier_id and float(inv[8]) > 0]
 
@@ -325,7 +395,7 @@ class PurchasesView(ctk.CTkFrame):
         self.pay_amount_entry.delete(0, "end")
         self.pay_voucher_entry.delete(0, "end")
         self.pay_form_title_lbl.configure(text="💵 تسجيل دفعة مالية وسند صرف للمورد:")
-        self.btn_save_pay.configure(text="✅ تأكيد وحفظ الدفعة والسند", fg_color=THEME["success"])
+        self.btn_save_pay.configure(text="✅ تأكيد وحفظ الدفعة والسند", fg_color=THEME["success"], hover_color=THEME["success_hover"])
         self.btn_cancel_pay.pack_forget()
 
     def edit_payment_row(self, pay):
@@ -335,10 +405,10 @@ class PurchasesView(ctk.CTkFrame):
         self.pay_date_entry.delete(0, "end")
         self.pay_date_entry.insert(0, str(pay[4]))
         self.pay_voucher_entry.delete(0, "end")
-        self.pay_voucher_entry.insert(0, str(pay[5]) if pay[5] != '-' else "")
+        self.pay_voucher_entry.insert(0, str(pay[5]) if pay[5] != "-" else "")
 
         self.pay_form_title_lbl.configure(text=f"✏️ تعديل سند الصرف (معرف #{pay[0]}):")
-        self.btn_save_pay.configure(text="💾 حفظ تعديل السند", fg_color=THEME["warning"])
+        self.btn_save_pay.configure(text="💾 حفظ تعديل السند", fg_color=THEME["warning"], hover_color=THEME["warning_hover"])
         self.btn_cancel_pay.pack(side="left", padx=5)
 
     def delete_payment_row(self, payment_id):
@@ -355,9 +425,9 @@ class PurchasesView(ctk.CTkFrame):
         self.update_idletasks()
         for w in self.pay_scroll.winfo_children():
             w.destroy()
-        
-        choice = getattr(self, 'combo_pay_supplier', None) and self.combo_pay_supplier.get()
-        if not choice or choice not in getattr(self, 'supplier_pay_map', {}):
+
+        choice = getattr(self, "combo_pay_supplier", None) and self.combo_pay_supplier.get()
+        if not choice or choice not in getattr(self, "supplier_pay_map", {}):
             self.summary_lbl.configure(text="إجمالي المشتريات: 0.00 | إجمالي المدفوع: 0.00 | المتبقي الصافي: 0.00 ر.ي")
             return
 
@@ -379,10 +449,10 @@ class PurchasesView(ctk.CTkFrame):
             for pay in payments:
                 card = ctk.CTkFrame(self.pay_scroll, fg_color=THEME["bg_app"], corner_radius=8, border_width=1, border_color=THEME["border"])
                 card.pack(fill="x", pady=3, padx=5)
-                
+
                 row = ctk.CTkFrame(card, fg_color="transparent")
                 row.pack(fill="x", padx=12, pady=6)
-                
+
                 for col in range(5):
                     row.grid_columnconfigure(col, weight=1)
 
@@ -395,10 +465,30 @@ class PurchasesView(ctk.CTkFrame):
                 btn_p_box = ctk.CTkFrame(card, fg_color="transparent")
                 btn_p_box.pack(fill="x", padx=12, pady=(0, 6))
 
-                btn_del_p = ctk.CTkButton(btn_p_box, text="🗑️ حذف السند", width=85, height=26, fg_color=THEME["danger"], hover_color=THEME["danger_hover"], font=get_font(size=10), command=lambda pid=pay[0]: self.delete_payment_row(pid))
+                btn_del_p = ctk.CTkButton(
+                    btn_p_box,
+                    text="🗑️ حذف السند",
+                    width=85,
+                    height=26,
+                    fg_color=THEME["danger"],
+                    hover_color=THEME["danger_hover"],
+                    text_color=THEME["text_light"],
+                    font=get_font(size=10),
+                    command=lambda pid=pay[0]: self.delete_payment_row(pid),
+                )
                 btn_del_p.pack(side="left", padx=3)
 
-                btn_edit_p = ctk.CTkButton(btn_p_box, text="✏️ تعديل السند", width=85, height=26, fg_color=THEME["warning"], hover_color="darkorange", font=get_font(size=10), command=lambda p_obj=pay: self.edit_payment_row(p_obj))
+                btn_edit_p = ctk.CTkButton(
+                    btn_p_box,
+                    text="✏️ تعديل السند",
+                    width=85,
+                    height=26,
+                    fg_color=THEME["warning"],
+                    hover_color=THEME["warning_hover"],
+                    text_color=THEME["text_light"],
+                    font=get_font(size=10),
+                    command=lambda p_obj=pay: self.edit_payment_row(p_obj),
+                )
                 btn_edit_p.pack(side="left", padx=3)
 
         if sup_invoices:
@@ -406,14 +496,14 @@ class PurchasesView(ctk.CTkFrame):
             for inv in sup_invoices:
                 card = ctk.CTkFrame(self.pay_scroll, fg_color=THEME["bg_app"], corner_radius=8, border_width=1, border_color=THEME["border"])
                 card.pack(fill="x", pady=3, padx=5)
-                
+
                 status_str = "خالص" if inv[10] == "Paid" else ("مسدد جزئياً" if inv[10] == "Partial" else "أجل / غير مسدد")
                 status_color = THEME["success"] if inv[10] == "Paid" else (THEME["warning"] if inv[10] == "Partial" else THEME["danger"])
-                p_type_txt = "آجل" if (len(inv) > 9 and inv[9] == 'Credit') else "نقداً"
+                p_type_txt = "آجل" if (len(inv) > 9 and inv[9] == "Credit") else "نقداً"
 
                 row = ctk.CTkFrame(card, fg_color="transparent")
                 row.pack(fill="x", padx=12, pady=6)
-                
+
                 for col in range(7):
                     row.grid_columnconfigure(col, weight=1)
 
@@ -424,7 +514,7 @@ class PurchasesView(ctk.CTkFrame):
                 ctk.CTkLabel(row, text=f"التاريخ: {inv[5]}", font=get_font(size=11), text_color=THEME["text_secondary"], anchor="e").grid(row=0, column=4, sticky="e", padx=2)
                 ctk.CTkLabel(row, text=f"النوع: {p_type_txt}", font=get_font(size=11), text_color=THEME["purple"], anchor="e").grid(row=0, column=5, sticky="e", padx=2)
                 ctk.CTkLabel(row, text=f"فاتورة: {inv[1]}", font=get_font(size=11, weight="bold"), text_color=THEME["indigo"], anchor="e").grid(row=0, column=6, sticky="e", padx=2)
-        
+
         if not payments and not sup_invoices:
             ctk.CTkLabel(self.pay_scroll, text="لا توجد حركات مسجلة لهذا المورد.", font=get_font(size=11), text_color=THEME["text_muted"]).pack(pady=20)
 
@@ -476,10 +566,30 @@ class PurchasesView(ctk.CTkFrame):
         self.inv_desc_entry = ctk.CTkEntry(row2, width=300, height=32, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
         self.inv_desc_entry.pack(side="right", padx=(0, 16))
 
-        self.btn_save_inv = ctk.CTkButton(row2, text="💾 حفظ الفاتورة", width=130, height=32, fg_color=THEME["indigo"], hover_color=THEME["primary_hover"], font=get_font(size=12, weight="bold"), command=self.save_purchase_invoice)
+        self.btn_save_inv = ctk.CTkButton(
+            row2,
+            text="💾 حفظ الفاتورة",
+            width=130,
+            height=32,
+            fg_color=THEME["indigo"],
+            hover_color=THEME["primary_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"),
+            command=self.save_purchase_invoice,
+        )
         self.btn_save_inv.pack(side="left", padx=5)
 
-        self.btn_cancel_inv = ctk.CTkButton(row2, text="❌ إلغاء", width=100, height=32, fg_color=THEME["danger"], hover_color=THEME["danger_hover"], font=get_font(size=11), command=self.reset_invoice_form)
+        self.btn_cancel_inv = ctk.CTkButton(
+            row2,
+            text="❌ إلغاء",
+            width=100,
+            height=32,
+            fg_color=THEME["danger"],
+            hover_color=THEME["danger_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=11),
+            command=self.reset_invoice_form,
+        )
 
         self.inv_status_lbl = ctk.CTkLabel(row2, text="", font=get_font(size=11))
         self.inv_status_lbl.pack(side="left", padx=10)
@@ -530,7 +640,7 @@ class PurchasesView(ctk.CTkFrame):
 
         supplier_id = self.supplier_map[sup_choice]
         type_choice = self.combo_inv_type.get()
-        purchase_type = 'Cash' if "نقداً" in type_choice else 'Credit'
+        purchase_type = "Cash" if "نقداً" in type_choice else "Credit"
 
         try:
             total = float(self.inv_total_entry.get().strip() or 0)
@@ -540,7 +650,7 @@ class PurchasesView(ctk.CTkFrame):
             self.inv_status_lbl.configure(text="يرجى إدخال أرقام صحيحة للمبالغ.", text_color=THEME["danger"])
             return
 
-        if purchase_type == 'Cash' and paid < total:
+        if purchase_type == "Cash" and paid < total:
             paid = total
 
         description = self.inv_desc_entry.get().strip()
@@ -566,7 +676,7 @@ class PurchasesView(ctk.CTkFrame):
         self.inv_paid_entry.delete(0, "end")
         self.inv_desc_entry.delete(0, "end")
         self.inv_form_title_lbl.configure(text="📦 إدخال فاتورة مشتريات جديدة (نقد أو أجل):")
-        self.btn_save_inv.configure(text="💾 حفظ الفاتورة", fg_color=THEME["indigo"])
+        self.btn_save_inv.configure(text="💾 حفظ الفاتورة", fg_color=THEME["indigo"], hover_color=THEME["primary_hover"])
         self.btn_cancel_inv.pack_forget()
 
     def edit_invoice_row(self, inv):
@@ -582,8 +692,8 @@ class PurchasesView(ctk.CTkFrame):
         self.inv_desc_entry.delete(0, "end")
         self.inv_desc_entry.insert(0, inv[4] or "")
 
-        p_type = inv[9] if len(inv) > 9 else 'Cash'
-        if p_type == 'Credit':
+        p_type = inv[9] if len(inv) > 9 else "Cash"
+        if p_type == "Credit":
             self.combo_inv_type.set("آجل (Credit)")
         else:
             self.combo_inv_type.set("نقداً (Cash)")
@@ -594,7 +704,7 @@ class PurchasesView(ctk.CTkFrame):
                 break
 
         self.inv_form_title_lbl.configure(text=f"✏️ تعديل فاتورة المشتريات (رقم المعرف #{inv[0]}):")
-        self.btn_save_inv.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"])
+        self.btn_save_inv.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"], hover_color=THEME["warning_hover"])
         self.btn_cancel_inv.pack(side="left", padx=5)
 
     def delete_invoice_row(self, pur_id):
@@ -616,14 +726,14 @@ class PurchasesView(ctk.CTkFrame):
             for inv in invoices:
                 card = ctk.CTkFrame(self.inv_scroll, fg_color=THEME["bg_app"], corner_radius=8, border_width=1, border_color=THEME["border"])
                 card.pack(fill="x", pady=4, padx=5)
-                
+
                 status_str = "خالص" if inv[10] == "Paid" else ("مسدد جزئياً" if inv[10] == "Partial" else "أجل / غير مسدد")
                 status_color = THEME["success"] if inv[10] == "Paid" else (THEME["warning"] if inv[10] == "Partial" else THEME["danger"])
-                p_type_txt = "آجل" if (len(inv) > 9 and inv[9] == 'Credit') else "نقداً"
+                p_type_txt = "آجل" if (len(inv) > 9 and inv[9] == "Credit") else "نقداً"
 
                 row = ctk.CTkFrame(card, fg_color="transparent")
                 row.pack(fill="x", padx=12, pady=8)
-                
+
                 for col in range(8):
                     row.grid_columnconfigure(col, weight=1)
 
@@ -639,10 +749,30 @@ class PurchasesView(ctk.CTkFrame):
                 btn_box = ctk.CTkFrame(card, fg_color="transparent")
                 btn_box.pack(fill="x", padx=12, pady=(0, 6))
 
-                btn_del = ctk.CTkButton(btn_box, text="🗑️ حذف الفاتورة", width=90, height=26, fg_color=THEME["danger"], hover_color=THEME["danger_hover"], font=get_font(size=10), command=lambda pid=inv[0]: self.delete_invoice_row(pid))
+                btn_del = ctk.CTkButton(
+                    btn_box,
+                    text="🗑️ حذف الفاتورة",
+                    width=90,
+                    height=26,
+                    fg_color=THEME["danger"],
+                    hover_color=THEME["danger_hover"],
+                    text_color=THEME["text_light"],
+                    font=get_font(size=10),
+                    command=lambda pid=inv[0]: self.delete_invoice_row(pid),
+                )
                 btn_del.pack(side="left", padx=3)
 
-                btn_edit = ctk.CTkButton(btn_box, text="✏️ تعديل الفاتورة", width=90, height=26, fg_color=THEME["warning"], hover_color="darkorange", font=get_font(size=10), command=lambda i_obj=inv: self.edit_invoice_row(i_obj))
+                btn_edit = ctk.CTkButton(
+                    btn_box,
+                    text="✏️ تعديل الفاتورة",
+                    width=90,
+                    height=26,
+                    fg_color=THEME["warning"],
+                    hover_color=THEME["warning_hover"],
+                    text_color=THEME["text_light"],
+                    font=get_font(size=10),
+                    command=lambda i_obj=inv: self.edit_invoice_row(i_obj),
+                )
                 btn_edit.pack(side="left", padx=3)
         else:
             ctk.CTkLabel(self.inv_scroll, text="لا توجد فواتير مشتريات مسجلة.", font=get_font(size=11), text_color=THEME["text_muted"]).pack(pady=20)

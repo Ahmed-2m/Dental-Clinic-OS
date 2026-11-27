@@ -9,16 +9,38 @@ import customtkinter as ctk
 from backend.staff_repo import StaffRepository
 from backend.backup_repo import BackupRepository
 from backend.reports_repo import ReportsRepository
-from ui.theme import THEME, get_font, setup_rtl_entry, setup_rtl_textbox, fix_combobox_rtl, get_clinic_logo
+from backend.print_branding import load_clinic_profile
+from ui.theme import (
+    THEME,
+    get_font,
+    setup_rtl_entry,
+    setup_rtl_textbox,
+    fix_combobox_rtl,
+    get_clinic_logo,
+    set_appearance_mode_theme,
+    get_current_appearance_mode,
+)
+
 
 class SettingsView(ctk.CTkFrame):
-    def __init__(self, parent):
+    def __init__(self, parent, on_appearance_change=None):
         super().__init__(parent, fg_color="transparent")
-        
-        self.config_file = os.path.join(os.getcwd(), "clinic_config.json")
-        self.clinic_info = self._load_clinic_config()
+        self.on_appearance_change = on_appearance_change
 
-        # نظام التبويبات الرئيسي داخل لوحة الإعدادات
+        # ملف خاص ببيانات العيادة وترويسة الكشوفات (منفصل عن clinic_config.json الخاص بقاعدة البيانات)
+        self.profile_file = os.path.join(os.getcwd(), "clinic_profile.json")
+        self.clinic_info = self._load_clinic_profile()
+
+        # تطبيق النمط المحفوظ عند تهيئة الشاشة
+        saved_mode = str(self.clinic_info.get("appearance", get_current_appearance_mode())).strip()
+        set_appearance_mode_theme(saved_mode)
+
+        self._build_ui()
+
+    def _build_ui(self):
+        for w in self.winfo_children():
+            w.destroy()
+
         self.tabview = ctk.CTkTabview(
             self,
             fg_color=THEME["bg_card"],
@@ -32,34 +54,28 @@ class SettingsView(ctk.CTkFrame):
         )
         self.tabview.pack(fill="both", expand=True)
 
-        # ترتيب التبويبات بحيث يظهر التبويب الرئيسي على اليمين
         self.tab_general = self.tabview.add("⚙️ إعدادات عامة")
         self.tab_backup = self.tabview.add("💾 النسخ الاحتياطي")
         self.tab_staff = self.tabview.add("👥 الموظفين والصلاحيات")
         self.tab_reports = self.tabview.add("📊 التقارير والكشوفات")
 
-        # تعيين التبويب الأيمن نشطاً افتراضياً
-        self.tabview.set("📊 التقارير والكشوفات")
-
         self._build_reports_tab()
         self._build_staff_management_tab()
         self._build_backup_tab_content()
         self._build_general_tab_content()
+        self.tabview.set("⚙️ إعدادات عامة")
 
-    def _load_clinic_config(self):
-        default_cfg = {
+    def _load_clinic_profile(self):
+        loaded = load_clinic_profile()
+        if isinstance(loaded, dict):
+            return loaded
+        return {
             "name": "عيادة تيسير لطب الأسنان",
             "phone": "770000000",
             "address": "صنعاء - اليمن",
-            "appearance": "Dark"
+            "logo": "",
+            "appearance": "Dark",
         }
-        if os.path.exists(self.config_file):
-            try:
-                with open(self.config_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                return default_cfg
-        return default_cfg
 
     # =========================================================================
     # 1. تبويب إدارة الموظفين والصلاحيات
@@ -68,25 +84,24 @@ class SettingsView(ctk.CTkFrame):
         self.staff_repo = StaffRepository()
         self.selected_emp_id = None
 
-        self.tab_staff.grid_columnconfigure(0, weight=3) # القائمة على اليسار
-        self.tab_staff.grid_columnconfigure(1, weight=2) # النموذج على اليمين
+        self.tab_staff.grid_columnconfigure(0, weight=3)
+        self.tab_staff.grid_columnconfigure(1, weight=2)
         self.tab_staff.grid_rowconfigure(0, weight=1)
 
-        # استخدام CTkScrollableFrame بدلاً من CTkFrame لضمان ظهور شريط التمرير والوصول لكل الحقول
         self.form_frame = ctk.CTkScrollableFrame(
-            self.tab_staff, 
-            corner_radius=12, 
+            self.tab_staff,
+            corner_radius=12,
             fg_color=THEME["bg_card_secondary"],
             border_width=1,
-            border_color=THEME["border_light"]
+            border_color=THEME["border_light"],
         )
         self.form_frame.grid(row=0, column=1, padx=(6, 0), sticky="nsew")
 
         self.form_title_lbl = ctk.CTkLabel(
-            self.form_frame, 
-            text="➕ إضافة موظف / كادر طبي جديد", 
+            self.form_frame,
+            text="➕ إضافة موظف / كادر طبي جديد",
             font=get_font(size=14, weight="bold"),
-            text_color=THEME["primary"]
+            text_color=THEME["primary"],
         )
         self.form_title_lbl.pack(anchor="e", padx=16, pady=(14, 8))
 
@@ -100,7 +115,7 @@ class SettingsView(ctk.CTkFrame):
                 height=34,
                 justify="right",
                 fg_color=THEME["bg_card"],
-                border_color=THEME["border"]
+                border_color=THEME["border"],
             )
             entry.pack(anchor="e", padx=16, pady=(0, 4))
             return setup_rtl_entry(entry)
@@ -115,7 +130,7 @@ class SettingsView(ctk.CTkFrame):
                 height=34,
                 justify="right",
                 fg_color=THEME["bg_card"],
-                border_color=THEME["border"]
+                border_color=THEME["border"],
             )
             combo.set(values_list[0])
             fix_combobox_rtl(combo)
@@ -125,34 +140,40 @@ class SettingsView(ctk.CTkFrame):
         self.e_name = add_entry_field("الاسم الكامل:", "أدخل الاسم...")
         self.e_phone = add_entry_field("رقم الهاتف المحمول:", "77xxxxxxx")
         self.e_address = add_entry_field("العنوان والمنطقة:", "صنعاء...")
-        
+
         job_titles = ["طبيب أسنان", "أخصائي تركيبات", "مساعد طبيب", "موظف استقبال", "محاسب", "مسؤول نظام"]
         self.combo_job = add_combo_field("المسمى الوظيفي:", job_titles)
 
         self.e_salary = add_entry_field("الراتب الشهري (ر.ي):", "0.00")
-        
+
         date_label = ctk.CTkLabel(self.form_frame, text="تاريخ التعيين:", font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"])
         date_label.pack(anchor="e", padx=16, pady=(2, 0))
-        
+
         date_container = ctk.CTkFrame(self.form_frame, fg_color="transparent")
         date_container.pack(anchor="e", padx=16, pady=(0, 4))
-        
+
         self.e_date = ctk.CTkEntry(date_container, placeholder_text="YYYY-MM-DD", width=250, height=32, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
         self.e_date.pack(side="right", padx=(5, 0))
         self.e_date.insert(0, datetime.date.today().strftime("%Y-%m-%d"))
         setup_rtl_entry(self.e_date)
 
         cal_btn = ctk.CTkButton(
-            date_container, text="📅", width=42, height=32,
-            fg_color=THEME["bg_app"], hover_color=THEME["bg_card_hover"],
-            border_width=1, border_color=THEME["border"],
-            command=lambda: self.open_calendar_popup(self.e_date)
+            date_container,
+            text="📅",
+            width=42,
+            height=32,
+            fg_color=THEME["bg_app"],
+            hover_color=THEME["bg_card_hover"],
+            text_color=THEME["text_primary"],
+            border_width=1,
+            border_color=THEME["border"],
+            command=lambda: self.open_calendar_popup(self.e_date),
         )
         cal_btn.pack(side="right")
 
         self.e_user = add_entry_field("اسم المستخدم للنظام:", "admin_user")
         self.e_pass = add_entry_field("كلمة المرور:", "******")
-        
+
         roles_list = ["admin", "doctor", "receptionist"]
         self.combo_role = add_combo_field("الصلاحية في النظام:", roles_list)
 
@@ -167,24 +188,36 @@ class SettingsView(ctk.CTkFrame):
         btn_row.pack(anchor="e", padx=16, pady=(4, 12))
 
         self.cancel_btn = ctk.CTkButton(
-            btn_row, text="❌ إلغاء", font=get_font(size=11),
-            fg_color=THEME["danger_soft"], hover_color=THEME["danger"],
-            text_color=THEME["danger"], height=34, width=80, command=self.reset_form
+            btn_row,
+            text="❌ إلغاء",
+            font=get_font(size=11),
+            fg_color=THEME["danger_soft"],
+            hover_color=THEME["danger"],
+            text_color=THEME["danger"],
+            height=34,
+            width=80,
+            command=self.reset_form,
         )
 
         self.save_btn = ctk.CTkButton(
-            btn_row, text="💾 حفظ الموظف", font=get_font(size=12, weight="bold"),
-            fg_color=THEME["primary"], hover_color=THEME["primary_hover"], height=34, width=140, command=self.save_or_update
+            btn_row,
+            text="💾 حفظ الموظف",
+            font=get_font(size=12, weight="bold"),
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            text_color=THEME["text_light"],
+            height=34,
+            width=140,
+            command=self.save_or_update,
         )
         self.save_btn.pack(side="right", padx=(5, 0))
 
-        # قائمة الموظفين (يسار)
         list_frame = ctk.CTkFrame(
-            self.tab_staff, 
-            corner_radius=12, 
+            self.tab_staff,
+            corner_radius=12,
             fg_color=THEME["bg_card_secondary"],
             border_width=1,
-            border_color=THEME["border_light"]
+            border_color=THEME["border_light"],
         )
         list_frame.grid(row=0, column=0, padx=(0, 6), sticky="nsew")
         list_frame.grid_rowconfigure(1, weight=1)
@@ -194,10 +227,16 @@ class SettingsView(ctk.CTkFrame):
         header_l.grid(row=0, column=0, sticky="ew", padx=16, pady=12)
         ctk.CTkLabel(header_l, text="📋 طاقم العمل والصلاحيات", font=get_font(size=14, weight="bold"), text_color=THEME["text_primary"]).pack(side="right")
         ctk.CTkButton(
-            header_l, text="🔄 تحديث", width=80, height=30, 
-            fg_color=THEME["bg_app"], hover_color=THEME["bg_card_hover"],
-            border_width=1, border_color=THEME["border"],
-            command=self.refresh_list
+            header_l,
+            text="🔄 تحديث",
+            width=80,
+            height=30,
+            fg_color=THEME["bg_app"],
+            hover_color=THEME["bg_card_hover"],
+            text_color=THEME["text_primary"],
+            border_width=1,
+            border_color=THEME["border"],
+            command=self.refresh_list,
         ).pack(side="left")
 
         self.scroll_cards = ctk.CTkScrollableFrame(list_frame, fg_color="transparent")
@@ -211,6 +250,7 @@ class SettingsView(ctk.CTkFrame):
         top.geometry("320x300")
         top.attributes("-topmost", True)
         top.resizable(False, False)
+        top.configure(fg_color=THEME["bg_card"])
 
         cal = Calendar(top, selectmode="day", year=datetime.date.today().year, month=datetime.date.today().month, day=datetime.date.today().day)
         cal.pack(pady=15, padx=15, fill="both", expand=True)
@@ -229,17 +269,31 @@ class SettingsView(ctk.CTkFrame):
             target_entry.insert(0, parsed_date)
             top.destroy()
 
-        ctk.CTkButton(top, text="تأكيد التاريخ", fg_color=THEME["primary"], height=32, command=set_date).pack(pady=(0, 15), padx=15, fill="x")
+        ctk.CTkButton(
+            top,
+            text="تأكيد التاريخ",
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            text_color=THEME["text_light"],
+            height=32,
+            command=set_date,
+        ).pack(pady=(0, 15), padx=15, fill="x")
 
     def save_or_update(self):
         name = self.e_name.get().strip()
         if not name:
             return
         data = (
-            name, self.e_phone.get().strip(), self.e_address.get().strip(),
-            self.combo_job.get().strip(), self.e_salary.get().strip(), self.e_date.get().strip(),
-            self.e_user.get().strip(), self.e_pass.get().strip(), self.combo_role.get().strip(),
-            self.combo_status.get().strip()
+            name,
+            self.e_phone.get().strip(),
+            self.e_address.get().strip(),
+            self.combo_job.get().strip(),
+            self.e_salary.get().strip(),
+            self.e_date.get().strip(),
+            self.e_user.get().strip(),
+            self.e_pass.get().strip(),
+            self.combo_role.get().strip(),
+            self.combo_status.get().strip(),
         )
         if self.selected_emp_id is None:
             ok, _ = self.staff_repo.add(*data)
@@ -248,7 +302,6 @@ class SettingsView(ctk.CTkFrame):
 
         if ok:
             self.reset_form()
-            # استخدام after لتأجيل التحديث لحين الانتهاء من دورة الـ GUI الحالية تفادياً لأخطاء الـ update
             self.after(100, self.refresh_list)
 
     def reset_form(self):
@@ -261,7 +314,7 @@ class SettingsView(ctk.CTkFrame):
         self.combo_role.set("admin")
         self.combo_status.set("active")
         self.form_title_lbl.configure(text="➕ إضافة موظف / كادر طبي جديد", text_color=THEME["primary"])
-        self.save_btn.configure(text="💾 حفظ الموظف", fg_color=THEME["primary"])
+        self.save_btn.configure(text="💾 حفظ الموظف", fg_color=THEME["primary"], hover_color=THEME["primary_hover"])
         self.cancel_btn.pack_forget()
 
     def load_for_edit(self, s):
@@ -278,7 +331,7 @@ class SettingsView(ctk.CTkFrame):
         if s[9] in ["active", "inactive"]: self.combo_status.set(s[9])
 
         self.form_title_lbl.configure(text=f"✏️ تعديل موظف (#{s[0]} - {s[1]})", text_color=THEME["warning"])
-        self.save_btn.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"])
+        self.save_btn.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"], hover_color=THEME["warning_hover"])
         self.cancel_btn.pack(side="right", padx=(5, 0))
 
     def delete_action(self, emp_id):
@@ -298,11 +351,11 @@ class SettingsView(ctk.CTkFrame):
         if rows:
             for s in rows:
                 card = ctk.CTkFrame(
-                    self.scroll_cards, 
-                    corner_radius=10, 
+                    self.scroll_cards,
+                    corner_radius=10,
                     fg_color=THEME["bg_card"],
                     border_width=1,
-                    border_color=THEME["border"]
+                    border_color=THEME["border"],
                 )
                 card.pack(fill="x", pady=4, padx=2)
 
@@ -311,10 +364,10 @@ class SettingsView(ctk.CTkFrame):
 
                 role_tag = f"[{s[8] or 'staff'}]"
                 ctk.CTkLabel(
-                    top_c, 
-                    text=f"👨‍⚕️ {s[1]}   |   {s[4] or 'طاقم العيادة'} {role_tag}", 
+                    top_c,
+                    text=f"👨‍⚕️ {s[1]}   |   {s[4] or 'طاقم العيادة'} {role_tag}",
                     font=get_font(size=12, weight="bold"),
-                    text_color=THEME["text_primary"]
+                    text_color=THEME["text_primary"],
                 ).pack(side="right")
 
                 btn_f = ctk.CTkFrame(card, fg_color="transparent")
@@ -322,24 +375,34 @@ class SettingsView(ctk.CTkFrame):
 
                 sub_txt = f"📞 الهاتف: {s[2] or 'بدون'} | الراتب: {float(s[5] or 0):,.2f} ر.ي | الحالة: {s[9]}"
                 ctk.CTkLabel(
-                    btn_f, 
-                    text=sub_txt, 
-                    font=get_font(size=11), 
-                    text_color=THEME["text_secondary"]
+                    btn_f,
+                    text=sub_txt,
+                    font=get_font(size=11),
+                    text_color=THEME["text_secondary"],
                 ).pack(side="right")
 
                 ctk.CTkButton(
-                    btn_f, text="🗑️ حذف", width=60, height=24, 
-                    fg_color=THEME["danger_soft"], hover_color=THEME["danger"], 
+                    btn_f,
+                    text="🗑️ حذف",
+                    width=60,
+                    height=24,
+                    fg_color=THEME["danger_soft"],
+                    hover_color=THEME["danger"],
+                    text_color=THEME["danger"],
                     font=get_font(size=10),
-                    command=lambda id=s[0]: self.delete_action(id)
+                    command=lambda id=s[0]: self.delete_action(id),
                 ).pack(side="left", padx=2)
 
                 ctk.CTkButton(
-                    btn_f, text="✏️ تعديل", width=60, height=24, 
-                    fg_color=THEME["primary"], hover_color=THEME["primary_hover"], 
+                    btn_f,
+                    text="✏️ تعديل",
+                    width=60,
+                    height=24,
+                    fg_color=THEME["primary"],
+                    hover_color=THEME["primary_hover"],
+                    text_color=THEME["text_light"],
                     font=get_font(size=10),
-                    command=lambda row=s: self.load_for_edit(row)
+                    command=lambda row=s: self.load_for_edit(row),
                 ).pack(side="left", padx=2)
         else:
             ctk.CTkLabel(self.scroll_cards, text="لا توجد بيانات موظفين مسجلة.", font=get_font(size=12), text_color=THEME["text_muted"]).pack(pady=25)
@@ -356,19 +419,19 @@ class SettingsView(ctk.CTkFrame):
         container.pack(fill="both", expand=True, padx=12, pady=10)
 
         filter_frame = ctk.CTkFrame(
-            container, 
-            corner_radius=12, 
+            container,
+            corner_radius=12,
             fg_color=THEME["bg_card_secondary"],
             border_width=1,
-            border_color=THEME["border_light"]
+            border_color=THEME["border_light"],
         )
         filter_frame.pack(fill="x", pady=(0, 10))
 
         ctk.CTkLabel(
-            filter_frame, 
-            text="📊 مركز التقارير والكشوفات المالية والإدارية المعتمدة", 
+            filter_frame,
+            text="📊 مركز التقارير والكشوفات المالية والإدارية المعتمدة",
             font=get_font(size=14, weight="bold"),
-            text_color=THEME["primary"]
+            text_color=THEME["primary"],
         ).pack(anchor="e", padx=16, pady=(10, 6))
 
         controls_row = ctk.CTkFrame(filter_frame, fg_color="transparent")
@@ -388,13 +451,15 @@ class SettingsView(ctk.CTkFrame):
             generate_preview()
 
         ctk.CTkButton(
-            controls_row, text="📅 كشف اليوم", width=95, height=32, 
-            fg_color=THEME["teal"], hover_color=THEME["teal_hover"], font=get_font(size=11, weight="bold"), command=set_daily
+            controls_row, text="📅 كشف اليوم", width=95, height=32,
+            fg_color=THEME["teal"], hover_color=THEME["teal_hover"], text_color=THEME["text_light"],
+            font=get_font(size=11, weight="bold"), command=set_daily
         ).pack(side="right", padx=(0, 6))
 
         ctk.CTkButton(
-            controls_row, text="📆 كشف الشهر", width=110, height=32, 
-            fg_color=THEME["primary"], hover_color=THEME["primary_hover"], font=get_font(size=11, weight="bold"), command=set_monthly
+            controls_row, text="📆 كشف الشهر", width=110, height=32,
+            fg_color=THEME["primary"], hover_color=THEME["primary_hover"], text_color=THEME["text_light"],
+            font=get_font(size=11, weight="bold"), command=set_monthly
         ).pack(side="right", padx=(0, 14))
 
         ctk.CTkLabel(controls_row, text="من:", font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"]).pack(side="right", padx=(0, 4))
@@ -402,14 +467,22 @@ class SettingsView(ctk.CTkFrame):
         self.rep_start.pack(side="right", padx=(0, 2))
         self.rep_start.insert(0, datetime.date.today().replace(day=1).strftime("%Y-%m-%d"))
         setup_rtl_entry(self.rep_start)
-        ctk.CTkButton(controls_row, text="📅", width=34, height=32, fg_color=THEME["bg_app"], border_width=1, border_color=THEME["border"], command=lambda: self.open_calendar_popup(self.rep_start)).pack(side="right", padx=(0, 14))
+        ctk.CTkButton(
+            controls_row, text="📅", width=34, height=32,
+            fg_color=THEME["bg_app"], hover_color=THEME["bg_card_hover"], text_color=THEME["text_primary"],
+            border_width=1, border_color=THEME["border"], command=lambda: self.open_calendar_popup(self.rep_start)
+        ).pack(side="right", padx=(0, 14))
 
         ctk.CTkLabel(controls_row, text="إلى:", font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"]).pack(side="right", padx=(0, 4))
         self.rep_end = ctk.CTkEntry(controls_row, width=105, height=32, justify="center", fg_color=THEME["bg_app"], border_color=THEME["border"])
         self.rep_end.pack(side="right", padx=(0, 2))
         self.rep_end.insert(0, datetime.date.today().strftime("%Y-%m-%d"))
         setup_rtl_entry(self.rep_end)
-        ctk.CTkButton(controls_row, text="📅", width=34, height=32, fg_color=THEME["bg_app"], border_width=1, border_color=THEME["border"], command=lambda: self.open_calendar_popup(self.rep_end)).pack(side="right", padx=(0, 14))
+        ctk.CTkButton(
+            controls_row, text="📅", width=34, height=32,
+            fg_color=THEME["bg_app"], hover_color=THEME["bg_card_hover"], text_color=THEME["text_primary"],
+            border_width=1, border_color=THEME["border"], command=lambda: self.open_calendar_popup(self.rep_end)
+        ).pack(side="right", padx=(0, 14))
 
         def generate_preview():
             s_date = self.rep_start.get().strip()
@@ -446,8 +519,9 @@ class SettingsView(ctk.CTkFrame):
             self.report_preview_box.configure(state="disabled")
 
         ctk.CTkButton(
-            controls_row, text="🔍 عرض ومعاينة الكشف", width=140, height=32, 
-            fg_color=THEME["primary"], hover_color=THEME["primary_hover"], font=get_font(size=11, weight="bold"), command=generate_preview
+            controls_row, text="🔍 عرض ومعاينة الكشف", width=140, height=32,
+            fg_color=THEME["primary"], hover_color=THEME["primary_hover"], text_color=THEME["text_light"],
+            font=get_font(size=11, weight="bold"), command=generate_preview
         ).pack(side="left")
 
         self.report_preview_box = ctk.CTkTextbox(container, font=ctk.CTkFont(size=12), fg_color=THEME["bg_app"], border_width=1, border_color=THEME["border"])
@@ -455,21 +529,22 @@ class SettingsView(ctk.CTkFrame):
         setup_rtl_textbox(self.report_preview_box)
 
         export_bar = ctk.CTkFrame(
-            container, 
-            corner_radius=12, 
+            container,
+            corner_radius=12,
             fg_color=THEME["bg_card_secondary"],
             border_width=1,
-            border_color=THEME["border_light"]
+            border_color=THEME["border_light"],
         )
         export_bar.pack(fill="x", pady=(6, 0))
 
         def do_export_pdf():
             if not self.current_report_rows:
                 generate_preview()
+            self.clinic_info = self._load_clinic_profile()
             file_path = filedialog.asksaveasfilename(
                 defaultextension=".pdf",
                 filetypes=[("PDF Files", "*.pdf")],
-                initialfile=f"Tayseer_Report_{datetime.date.today()}.pdf"
+                initialfile=f"Tayseer_Report_{datetime.date.today()}.pdf",
             )
             if file_path:
                 ok, msg = self.reports_repo.export_to_pdf(self.current_report_rows, self.current_report_summary, file_path, self.clinic_info)
@@ -478,23 +553,26 @@ class SettingsView(ctk.CTkFrame):
         def do_export_excel():
             if not self.current_report_rows:
                 generate_preview()
+            self.clinic_info = self._load_clinic_profile()
             file_path = filedialog.asksaveasfilename(
                 defaultextension=".xlsx",
                 filetypes=[("Excel Files", "*.xlsx")],
-                initialfile=f"Tayseer_Report_{datetime.date.today()}.xlsx"
+                initialfile=f"Tayseer_Report_{datetime.date.today()}.xlsx",
             )
             if file_path:
                 ok, msg = self.reports_repo.export_to_excel(self.current_report_rows, self.current_report_summary, file_path, self.clinic_info)
                 self.rep_status_lbl.configure(text=msg, text_color=THEME["success"] if ok else THEME["danger"])
 
         ctk.CTkButton(
-            export_bar, text="📄 تصدير كـ PDF رسمي للطباعة", width=210, height=36, 
-            fg_color=THEME["danger"], hover_color=THEME["danger_hover"], font=get_font(size=12, weight="bold"), command=do_export_pdf
+            export_bar, text="📄 تصدير كـ PDF رسمي للطباعة", width=210, height=36,
+            fg_color=THEME["danger"], hover_color=THEME["danger_hover"], text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"), command=do_export_pdf
         ).pack(side="right", padx=12, pady=10)
 
         ctk.CTkButton(
-            export_bar, text="📊 تصدير كـ Excel للتحليل", width=200, height=36, 
-            fg_color=THEME["success"], hover_color=THEME["success_hover"], font=get_font(size=12, weight="bold"), command=do_export_excel
+            export_bar, text="📊 تصدير كـ Excel للتحليل", width=200, height=36,
+            fg_color=THEME["success"], hover_color=THEME["success_hover"], text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"), command=do_export_excel
         ).pack(side="right", padx=4, pady=10)
 
         self.rep_status_lbl = ctk.CTkLabel(export_bar, text="", font=get_font(size=11))
@@ -521,7 +599,7 @@ class SettingsView(ctk.CTkFrame):
         ctk.CTkButton(
             container, text="🛡️ إنشاء نسخة احتياطية تلقائية سريعة (نهاية اليوم)",
             font=get_font(size=13, weight="bold"), fg_color=THEME["success"], hover_color=THEME["success_hover"],
-            height=42, width=350, command=run_auto_backup
+            text_color=THEME["text_light"], height=42, width=350, command=run_auto_backup
         ).pack(anchor="e", pady=(0, 12))
 
         def run_manual_backup():
@@ -530,7 +608,7 @@ class SettingsView(ctk.CTkFrame):
                 config = backup_repo.db.config
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 full_path = os.path.join(folder_selected, f"tayseer_manual_{timestamp}.sql")
-                cmd = ["mysqldump", f"-h{config.get('host', 'localhost')}", f"-P{str(config.get('port', 3306))}", f"-u{config.get('user')}", f"-p{config.get('password')}", config.get('database')]
+                cmd = ["mysqldump", f"-h{config.get('host', 'localhost')}", f"-P{str(config.get('port', 3306))}", f"-u{config.get('user')}", f"-p{config.get('password')}", config.get("database")]
                 try:
                     with open(full_path, "w", encoding="utf-8") as f:
                         subprocess.run(cmd, stdout=f, check=True)
@@ -541,29 +619,28 @@ class SettingsView(ctk.CTkFrame):
         ctk.CTkButton(
             container, text="📂 تصدير نسخة إلى مجلد مخصص (فلاش / قرص آخر)",
             font=get_font(size=12, weight="bold"), fg_color=THEME["primary"], hover_color=THEME["primary_hover"],
-            height=38, width=350, command=run_manual_backup
+            text_color=THEME["text_light"], height=38, width=350, command=run_manual_backup
         ).pack(anchor="e", pady=(0, 15))
 
         status_box = ctk.CTkLabel(container, text="", font=get_font(size=12), justify="right")
         status_box.pack(anchor="e", pady=10)
 
     # =========================================================================
-    # 4. تبويب الإعدادات العامة (مرتب بدقة بدون فجوات)
+    # 4. تبويب الإعدادات العامة (يدعم المظهر الداكن والفاتح)
     # =========================================================================
     def _build_general_tab_content(self):
         container = ctk.CTkFrame(self.tab_general, fg_color="transparent")
         container.pack(fill="both", expand=True, padx=30, pady=25)
 
         ctk.CTkLabel(container, text="⚙️ إعدادات العيادة العامة والتفضيلات", font=get_font(size=16, weight="bold"), text_color=THEME["primary"]).pack(anchor="e", pady=(0, 6))
-        ctk.CTkLabel(container, text="البيانات المحفوظة هنا تُطبع تلقائياً في ترويسة كشوفات الـ PDF وتقارير الـ Excel الرسمية.", font=get_font(size=12), text_color=THEME["text_secondary"]).pack(anchor="e", pady=(0, 16))
+        ctk.CTkLabel(container, text="البيانات المحفوظة هنا تُطبع تلقائياً في ترويسة كشوفات الـ PDF وتقارير الـ Excel الرسمية، ويُحفظ نمط المظهر تلقائياً.", font=get_font(size=12), text_color=THEME["text_secondary"]).pack(anchor="e", pady=(0, 16))
 
-        # بطاقة هوية وشعار العيادة المعتمد
         brand_card = ctk.CTkFrame(
-            container, 
-            corner_radius=12, 
+            container,
+            corner_radius=12,
             fg_color=THEME["bg_card_secondary"],
-            border_width=1, 
-            border_color=THEME["border_light"]
+            border_width=1,
+            border_color=THEME["border_light"],
         )
         brand_card.pack(fill="x", pady=(0, 14), padx=4)
 
@@ -579,7 +656,7 @@ class SettingsView(ctk.CTkFrame):
             text="شعار وهوية النظام المعتمدة: نظام عيادتي (My Clinic)",
             font=get_font(size=14, weight="bold"),
             text_color=THEME["primary"],
-            anchor="e"
+            anchor="e",
         ).pack(fill="x", pady=(0, 3))
 
         ctk.CTkLabel(
@@ -587,29 +664,29 @@ class SettingsView(ctk.CTkFrame):
             text="يظهر الشعار تلقائياً في واجهة تسجيل الدخول، لوحة التحكم المركزية، الشريط الجانبي، والتقارير المعتمدة.",
             font=get_font(size=12),
             text_color=THEME["text_secondary"],
-            anchor="e"
+            anchor="e",
         ).pack(fill="x")
 
         info_frame = ctk.CTkFrame(
-            container, 
-            corner_radius=12, 
+            container,
+            corner_radius=12,
             fg_color=THEME["bg_card_secondary"],
             border_width=1,
-            border_color=THEME["border_light"]
+            border_color=THEME["border_light"],
         )
         info_frame.pack(fill="x", pady=(0, 16), padx=4)
 
         ctk.CTkLabel(
-            info_frame, 
-            text="🏥 بيانات العيادة الرسمية للفواتير والتقارير", 
+            info_frame,
+            text="🏥 بيانات العيادة الرسمية ومظهر الواجهة",
             font=get_font(size=13, weight="bold"),
-            text_color=THEME["text_primary"]
+            text_color=THEME["text_primary"],
         ).pack(anchor="e", padx=20, pady=(14, 8))
 
         def add_setting_row(label_text, default_val):
             row = ctk.CTkFrame(info_frame, fg_color="transparent")
             row.pack(fill="x", padx=20, pady=5)
-            
+
             ctk.CTkLabel(row, text=label_text, font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"], width=110, anchor="e").pack(side="right", padx=(0, 10))
             entry = ctk.CTkEntry(row, width=380, height=34, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
             entry.pack(side="right")
@@ -620,23 +697,118 @@ class SettingsView(ctk.CTkFrame):
         self.s_phone = add_setting_row("هاتف العيادة:", self.clinic_info.get("phone", ""))
         self.s_address = add_setting_row("عنوان العيادة:", self.clinic_info.get("address", ""))
 
+        # صف اختيار المظهر (داكن / فاتح)
+        row_theme = ctk.CTkFrame(info_frame, fg_color="transparent")
+        row_theme.pack(fill="x", padx=20, pady=5)
+
+        ctk.CTkLabel(
+            row_theme,
+            text="مظهر النظام:",
+            font=get_font(size=11, weight="bold"),
+            text_color=THEME["text_secondary"],
+            width=110,
+            anchor="e",
+        ).pack(side="right", padx=(0, 10))
+
+        current_mode = str(self.clinic_info.get("appearance", get_current_appearance_mode())).strip().lower()
+        initial_ar_mode = "فاتح" if current_mode in ("light", "فاتح", "white", "أبيض") else "داكن"
+
+        self.seg_appearance = ctk.CTkSegmentedButton(
+            row_theme,
+            values=["داكن", "فاتح"],
+            font=get_font(size=12, weight="bold"),
+            selected_color=THEME["primary"],
+            selected_hover_color=THEME["primary_hover"],
+            unselected_color=THEME["bg_app"],
+            unselected_hover_color=THEME["bg_card_hover"],
+            text_color=THEME["text_primary"],
+            height=34,
+            width=200,
+        )
+        self.seg_appearance.set(initial_ar_mode)
+        self.seg_appearance.pack(side="right")
+
+        row_logo = ctk.CTkFrame(info_frame, fg_color="transparent")
+        row_logo.pack(fill="x", padx=20, pady=(5, 14))
+
+        ctk.CTkLabel(
+            row_logo,
+            text="شعار الكشوفات:",
+            font=get_font(size=11, weight="bold"),
+            text_color=THEME["text_secondary"],
+            width=110,
+            anchor="e",
+        ).pack(side="right", padx=(0, 10))
+
+        self.s_logo_path = ctk.CTkEntry(
+            row_logo,
+            width=280,
+            height=34,
+            justify="right",
+            fg_color=THEME["bg_app"],
+            border_color=THEME["border"],
+        )
+        self.s_logo_path.pack(side="right", padx=(0, 8))
+        self.s_logo_path.insert(0, self.clinic_info.get("logo", ""))
+        setup_rtl_entry(self.s_logo_path)
+
+        def pick_report_logo():
+            selected_path = filedialog.askopenfilename(
+                title="اختر شعار العيادة للطباعة",
+                filetypes=[("صور الشعار", "*.png *.jpg *.jpeg *.webp"), ("كل الملفات", "*.*")],
+            )
+            if selected_path:
+                self.s_logo_path.delete(0, "end")
+                self.s_logo_path.insert(0, selected_path)
+
+        ctk.CTkButton(
+            row_logo,
+            text="اختيار شعار",
+            width=90,
+            height=34,
+            font=get_font(size=11, weight="bold"),
+            fg_color=THEME["bg_card"],
+            hover_color=THEME["border"],
+            text_color=THEME["text_primary"],
+            command=pick_report_logo,
+        ).pack(side="right")
+
         def save_general_settings():
-            self.clinic_info = {
+            chosen_ar = self.seg_appearance.get()
+            appearance_en = "Light" if chosen_ar == "فاتح" else "Dark"
+
+            updated_info = {
                 "name": self.s_clinic_name.get().strip(),
                 "phone": self.s_phone.get().strip(),
                 "address": self.s_address.get().strip(),
-                "appearance": "Dark"
+                "logo": self.s_logo_path.get().strip(),
+                "appearance": appearance_en,
             }
             try:
-                with open(self.config_file, "w", encoding="utf-8") as f:
-                    json.dump(self.clinic_info, f, ensure_ascii=False, indent=4)
-                success_lbl.configure(text="✅ تم حفظ وتحديث الإعدادات بنجاح!", text_color=THEME["success"])
+                with open(self.profile_file, "w", encoding="utf-8") as f:
+                    json.dump(updated_info, f, ensure_ascii=False, indent=4)
+
+                self.clinic_info = self._load_clinic_profile()
+                set_appearance_mode_theme(appearance_en)
+
+                if callable(self.on_appearance_change):
+                    self.on_appearance_change(appearance_en)
+
+                self._build_ui()
+                self.tabview.set("⚙️ إعدادات عامة")
             except Exception as ex:
                 success_lbl.configure(text=f"خطأ في الحفظ: {ex}", text_color=THEME["danger"])
 
         ctk.CTkButton(
-            container, text="💾 حفظ التغييرات العامة", font=get_font(size=13, weight="bold"),
-            fg_color=THEME["primary"], hover_color=THEME["primary_hover"], height=40, width=220, command=save_general_settings
+            container,
+            text="💾 حفظ التغييرات العامة",
+            font=get_font(size=13, weight="bold"),
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            text_color=THEME["text_light"],
+            height=40,
+            width=220,
+            command=save_general_settings,
         ).pack(anchor="e", pady=10)
 
         success_lbl = ctk.CTkLabel(container, text="", font=get_font(size=12))
