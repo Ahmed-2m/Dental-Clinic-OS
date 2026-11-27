@@ -2,6 +2,7 @@ import customtkinter as ctk
 from backend.staff_repo import StaffRepository
 from ui.theme import THEME, get_font, setup_rtl_entry
 
+
 class StaffView(ctk.CTkFrame):
     def __init__(self, parent):
         super().__init__(parent, fg_color="transparent")
@@ -20,10 +21,10 @@ class StaffView(ctk.CTkFrame):
         self.form_frame.grid(row=0, column=1, padx=(10, 0), sticky="nsew")
 
         self.form_title_lbl = ctk.CTkLabel(
-            self.form_frame, 
-            text="👨‍⚕️ تسجيل موظف أو طبيب جديد", 
+            self.form_frame,
+            text="👨‍⚕️ تسجيل موظف أو طبيب جديد",
             font=get_font(size=16, weight="bold"),
-            text_color=THEME["primary"]
+            text_color=THEME["primary"],
         )
         self.form_title_lbl.pack(anchor="e", padx=20, pady=(15, 10))
 
@@ -54,21 +55,25 @@ class StaffView(ctk.CTkFrame):
         btn_row.pack(anchor="e", padx=20, pady=(5, 15))
 
         self.cancel_btn = ctk.CTkButton(
-            btn_row, 
-            text="❌ إلغاء التعديل", 
+            btn_row,
+            text="❌ إلغاء التعديل",
             font=get_font(size=11),
-            fg_color=THEME["danger_soft"], hover_color=THEME["danger"],
+            fg_color=THEME["danger_soft"],
+            hover_color=THEME["danger"],
+            text_color=THEME["danger"],
             height=32,
-            command=self.reset_form
+            command=self.reset_form,
         )
 
         self.save_btn = ctk.CTkButton(
-            btn_row, 
-            text="💾 حفظ بيانات الموظف", 
+            btn_row,
+            text="💾 حفظ بيانات الموظف",
             font=get_font(size=13, weight="bold"),
-            fg_color=THEME["primary"], hover_color=THEME["primary_hover"],
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            text_color=THEME["text_light"],
             height=34,
-            command=self.save_or_update_staff
+            command=self.save_or_update_staff,
         )
         self.save_btn.pack(side="right", padx=(5, 0))
 
@@ -82,10 +87,10 @@ class StaffView(ctk.CTkFrame):
         header_layout.grid(row=0, column=0, sticky="ew", padx=20, pady=(15, 10))
 
         title_lbl = ctk.CTkLabel(
-            header_layout, 
-            text="👥 بطاقات وسجلات الكادر الطبي والموظفين", 
+            header_layout,
+            text="👥 بطاقات وسجلات الكادر الطبي والموظفين",
             font=get_font(size=15, weight="bold"),
-            text_color=THEME["text_primary"]
+            text_color=THEME["text_primary"],
         )
         title_lbl.pack(side="right")
 
@@ -93,10 +98,14 @@ class StaffView(ctk.CTkFrame):
             header_layout,
             text="🔄 تحديث",
             font=get_font(size=11),
-            width=85, height=28,
-            fg_color=THEME["bg_app"], hover_color=THEME["bg_card_hover"],
-            border_width=1, border_color=THEME["border"],
-            command=self.refresh_list
+            width=85,
+            height=28,
+            fg_color=THEME["bg_app"],
+            hover_color=THEME["bg_card_hover"],
+            text_color=THEME["text_primary"],
+            border_width=1,
+            border_color=THEME["border"],
+            command=self.refresh_list,
         )
         refresh_btn.pack(side="left")
 
@@ -131,14 +140,16 @@ class StaffView(ctk.CTkFrame):
 
     def reset_form(self):
         self.selected_emp_id = None
-        for entry in [self.entry_name, self.entry_phone, self.entry_address, self.entry_job, 
-                      self.entry_salary, self.entry_hire_date, self.entry_username, 
-                      self.entry_password, self.entry_role]:
+        for entry in [
+            self.entry_name, self.entry_phone, self.entry_address, self.entry_job,
+            self.entry_salary, self.entry_hire_date, self.entry_username,
+            self.entry_password, self.entry_role,
+        ]:
             entry.delete(0, "end")
-        
+
         self.combo_status.set("active")
         self.form_title_lbl.configure(text="👨‍⚕️ تسجيل موظف أو طبيب جديد", text_color=THEME["primary"])
-        self.save_btn.configure(text="💾 حفظ بيانات الموظف", fg_color=THEME["primary"])
+        self.save_btn.configure(text="💾 حفظ بيانات الموظف", fg_color=THEME["primary"], hover_color=THEME["primary_hover"])
         self.cancel_btn.pack_forget()
 
     def load_staff_for_edit(self, s):
@@ -155,7 +166,7 @@ class StaffView(ctk.CTkFrame):
         self.combo_status.set(s[9] if s[9] in ["active", "inactive"] else "active")
 
         self.form_title_lbl.configure(text=f"✏️ تعديل بيانات الموظف (#{s[0]} - {s[1]})", text_color=THEME["warning"])
-        self.save_btn.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"])
+        self.save_btn.configure(text="💾 حفظ التعديلات", fg_color=THEME["warning"], hover_color=THEME["warning_hover"])
         self.cancel_btn.pack(side="right", padx=(5, 0))
 
     def delete_staff_action(self, emp_id):
@@ -179,10 +190,10 @@ class StaffView(ctk.CTkFrame):
                 top_c.pack(fill="x", padx=14, pady=(10, 2))
 
                 ctk.CTkLabel(
-                    top_c, 
-                    text=f"👨‍⚕️ {s[1]}   |   المسمى: {s[4] or 'غير محدد'}", 
+                    top_c,
+                    text=f"👨‍⚕️ {s[1]}   |   المسمى: {s[4] or 'غير محدد'}",
                     font=get_font(size=13, weight="bold"),
-                    text_color=THEME["text_primary"]
+                    text_color=THEME["text_primary"],
                 ).pack(side="right")
 
                 actions_frame = ctk.CTkFrame(card, fg_color="transparent")
@@ -192,15 +203,27 @@ class StaffView(ctk.CTkFrame):
                 ctk.CTkLabel(actions_frame, text=sub_txt, font=get_font(size=11), text_color=THEME["text_secondary"]).pack(side="right")
 
                 ctk.CTkButton(
-                    actions_frame, text="🗑️ حذف", font=get_font(size=10),
-                    width=65, height=26, fg_color=THEME["danger_soft"], hover_color=THEME["danger"],
-                    command=lambda eid=s[0]: self.delete_staff_action(eid)
+                    actions_frame,
+                    text="🗑️ حذف",
+                    font=get_font(size=10),
+                    width=65,
+                    height=26,
+                    fg_color=THEME["danger_soft"],
+                    hover_color=THEME["danger"],
+                    text_color=THEME["danger"],
+                    command=lambda eid=s[0]: self.delete_staff_action(eid),
                 ).pack(side="left", padx=2)
 
                 ctk.CTkButton(
-                    actions_frame, text="✏️ تعديل", font=get_font(size=10),
-                    width=65, height=26, fg_color=THEME["primary"], hover_color=THEME["primary_hover"],
-                    command=lambda staff=s: self.load_staff_for_edit(staff)
+                    actions_frame,
+                    text="✏️ تعديل",
+                    font=get_font(size=10),
+                    width=65,
+                    height=26,
+                    fg_color=THEME["primary"],
+                    hover_color=THEME["primary_hover"],
+                    text_color=THEME["text_light"],
+                    command=lambda staff=s: self.load_staff_for_edit(staff),
                 ).pack(side="left", padx=2)
         else:
             ctk.CTkLabel(self.scrollable_cards_container, text="لا يوجد موظفون مسجلون حالياً.", font=get_font(size=12), text_color=THEME["text_muted"]).pack(pady=35)

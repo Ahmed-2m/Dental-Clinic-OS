@@ -10,11 +10,12 @@ from backend.staff_repo import StaffRepository
 
 from ui.theme import THEME, get_font, setup_rtl_entry
 
+
 class LabsView(ctk.CTkFrame):
     def __init__(self, parent, user_role="admin"):
         super().__init__(parent, fg_color="transparent")
         self.user_role = str(user_role).lower()
-        
+
         self.labs_repo = LabsRepository()
         self.orders_repo = LabOrdersRepository()
         self.payments_repo = LabPaymentsRepository()
@@ -29,7 +30,7 @@ class LabsView(ctk.CTkFrame):
             segmented_button_selected_hover_color=THEME["primary_hover"],
             segmented_button_unselected_color=THEME["bg_card_secondary"],
             segmented_button_unselected_hover_color=THEME["bg_card_hover"],
-            text_color=THEME["text_light"]
+            text_color=THEME["text_primary"],
         )
         self.tabview.pack(fill="both", expand=True)
 
@@ -50,19 +51,19 @@ class LabsView(ctk.CTkFrame):
         container = self.tab_orders
 
         form_frame = ctk.CTkFrame(
-            container, 
-            fg_color=THEME["bg_card_secondary"], 
-            corner_radius=12, 
-            border_width=1, 
-            border_color=THEME["border_light"]
+            container,
+            fg_color=THEME["bg_card_secondary"],
+            corner_radius=12,
+            border_width=1,
+            border_color=THEME["border_light"],
         )
         form_frame.pack(fill="x", padx=12, pady=(10, 8))
 
         ctk.CTkLabel(
-            form_frame, 
-            text="➕ تسجيل أمر تركيبات وعمل جديد", 
-            font=get_font(size=14, weight="bold"), 
-            text_color=THEME["primary"]
+            form_frame,
+            text="➕ تسجيل أمر تركيبات وعمل جديد",
+            font=get_font(size=14, weight="bold"),
+            text_color=THEME["primary"],
         ).pack(anchor="e", padx=16, pady=(10, 6))
 
         labs_list = self.labs_repo.get_all_labs()
@@ -79,17 +80,20 @@ class LabsView(ctk.CTkFrame):
         ctk.CTkLabel(row1, text="المعمل:", font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"]).pack(side="right", padx=(0, 4))
         cb_lab = ctk.CTkComboBox(row1, values=lab_names, width=170, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
         cb_lab.pack(side="right", padx=(0, 16))
-        if labs_list: cb_lab.set(lab_names[0])
+        if labs_list:
+            cb_lab.set(lab_names[0])
 
         ctk.CTkLabel(row1, text="المريض:", font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"]).pack(side="right", padx=(0, 4))
         cb_patient = ctk.CTkComboBox(row1, values=patient_names, width=180, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
         cb_patient.pack(side="right", padx=(0, 16))
-        if patients_list: cb_patient.set(patient_names[0])
+        if patients_list:
+            cb_patient.set(patient_names[0])
 
         ctk.CTkLabel(row1, text="الطبيب:", font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"]).pack(side="right", padx=(0, 4))
         cb_staff = ctk.CTkComboBox(row1, values=staff_names, width=170, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
         cb_staff.pack(side="right", padx=(0, 10))
-        if staff_list: cb_staff.set(staff_names[0])
+        if staff_list:
+            cb_staff.set(staff_names[0])
 
         row2 = ctk.CTkFrame(form_frame, fg_color="transparent")
         row2.pack(fill="x", padx=14, pady=4)
@@ -127,13 +131,14 @@ class LabsView(ctk.CTkFrame):
         row3.pack(fill="x", padx=14, pady=(6, 12))
 
         save_btn = ctk.CTkButton(
-            row3, 
-            text="💾 حفظ أمر التركيبة", 
-            fg_color=THEME["primary"], 
-            hover_color=THEME["primary_hover"], 
-            width=150, 
-            height=34, 
-            font=get_font(size=12, weight="bold")
+            row3,
+            text="💾 حفظ أمر التركيبة",
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            text_color=THEME["text_light"],
+            width=150,
+            height=34,
+            font=get_font(size=12, weight="bold"),
         )
         save_btn.pack(side="left", padx=(0, 10))
 
@@ -155,7 +160,7 @@ class LabsView(ctk.CTkFrame):
 
                     inv_text = f" | الفاتورة: #{o[12]}" if len(o) > 12 and o[12] else ""
                     notes_text = f" | ملاحظات: {o[11]}" if len(o) > 11 and o[11] else ""
-                    
+
                     header_txt = f"🔬 أمر تشغيل #{o[0]} | المعمل: {o[2]} | المريض: {o[4]} | الطبيب: {o[6]}"
                     body_txt = f"🦷 العمل: {o[7]} | 💰 التكلفة: {o[8]:,.2f} ر.ي{inv_text} | 📅 الإرسال: {o[9]} - الاستلام: {o[10]}{notes_text}"
 
@@ -166,16 +171,28 @@ class LabsView(ctk.CTkFrame):
                     act_row.pack(fill="x", padx=14, pady=(2, 8))
 
                     ctk.CTkButton(
-                        act_row, text="✏️ تعديل", width=80, height=26,
-                        font=get_font(size=10), fg_color=THEME["primary"], hover_color=THEME["primary_hover"],
-                        command=lambda order_item=o: self._edit_order_dialog(order_item)
+                        act_row,
+                        text="✏️ تعديل",
+                        width=80,
+                        height=26,
+                        font=get_font(size=10),
+                        fg_color=THEME["primary"],
+                        hover_color=THEME["primary_hover"],
+                        text_color=THEME["text_light"],
+                        command=lambda order_item=o: self._edit_order_dialog(order_item),
                     ).pack(side="left", padx=2)
 
                     if self.user_role == "admin":
                         ctk.CTkButton(
-                            act_row, text="🗑️ حذف", width=80, height=26,
-                            font=get_font(size=10), fg_color=THEME["danger_soft"], hover_color=THEME["danger"],
-                            command=lambda order_id=o[0]: self._delete_order(order_id)
+                            act_row,
+                            text="🗑️ حذف",
+                            width=80,
+                            height=26,
+                            font=get_font(size=10),
+                            fg_color=THEME["danger_soft"],
+                            hover_color=THEME["danger"],
+                            text_color=THEME["danger"],
+                            command=lambda order_id=o[0]: self._delete_order(order_id),
                         ).pack(side="left", padx=2)
             else:
                 ctk.CTkLabel(scroll, text="لا توجد أوامر معامل مسجلة حالياً.", font=get_font(size=12), text_color=THEME["text_muted"]).pack(pady=25)
@@ -221,6 +238,7 @@ class LabsView(ctk.CTkFrame):
         top.geometry("400x340")
         top.resizable(False, False)
         top.grab_set()
+        top.configure(fg_color=THEME["bg_card"])
 
         ctk.CTkLabel(top, text=f"✏️ تعديل أمر العمل #{order_id}", font=get_font(size=14, weight="bold"), text_color=THEME["warning"]).pack(pady=15)
 
@@ -254,7 +272,10 @@ class LabsView(ctk.CTkFrame):
                 conn = self.orders_repo.db.get_connection()
                 if conn:
                     cursor = conn.cursor()
-                    cursor.execute("UPDATE lab_orders SET work_type = %s, total_cost = %s, invoice_id = %s, notes = %s WHERE order_id = %s;", (e_w.get().strip(), new_cost, inv_val, e_n.get().strip(), order_id))
+                    cursor.execute(
+                        "UPDATE lab_orders SET work_type = %s, total_cost = %s, invoice_id = %s, notes = %s WHERE order_id = %s;",
+                        (e_w.get().strip(), new_cost, inv_val, e_n.get().strip(), order_id),
+                    )
                     conn.commit()
                     cursor.close()
                     conn.close()
@@ -263,7 +284,17 @@ class LabsView(ctk.CTkFrame):
             except Exception as ex:
                 print(f"Error: {ex}")
 
-        ctk.CTkButton(top, text="💾 حفظ التعديلات", width=150, height=34, fg_color=THEME["warning"], hover_color="darkorange", font=get_font(size=12, weight="bold"), command=save_edits).pack(pady=10)
+        ctk.CTkButton(
+            top,
+            text="💾 حفظ التعديلات",
+            width=150,
+            height=34,
+            fg_color=THEME["warning"],
+            hover_color=THEME["warning_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"),
+            command=save_edits,
+        ).pack(pady=10)
 
     def _delete_order(self, order_id):
         if self.user_role != "admin":
@@ -281,19 +312,19 @@ class LabsView(ctk.CTkFrame):
             w.destroy()
 
         search_card = ctk.CTkFrame(
-            container, 
-            fg_color=THEME["bg_card_secondary"], 
-            corner_radius=12, 
-            border_width=1, 
-            border_color=THEME["border_light"]
+            container,
+            fg_color=THEME["bg_card_secondary"],
+            corner_radius=12,
+            border_width=1,
+            border_color=THEME["border_light"],
         )
         search_card.pack(fill="x", padx=12, pady=(10, 6))
 
         ctk.CTkLabel(
-            search_card, 
-            text="🔍 اختر المعمل المطلوب لمعرفة رصيده وسداد دفعاته", 
-            font=get_font(size=14, weight="bold"), 
-            text_color=THEME["teal"]
+            search_card,
+            text="🔍 اختر المعمل المطلوب لمعرفة رصيده وسداد دفعاته",
+            font=get_font(size=14, weight="bold"),
+            text_color=THEME["teal"],
         ).pack(anchor="e", padx=16, pady=(10, 4))
 
         labs_list = self.labs_repo.get_all_labs()
@@ -305,34 +336,34 @@ class LabsView(ctk.CTkFrame):
         ctk.CTkLabel(select_row, text="اختر المعمل:", font=get_font(size=11, weight="bold"), text_color=THEME["text_secondary"]).pack(side="right", padx=(0, 4))
         cb_select_lab = ctk.CTkComboBox(select_row, values=lab_names, width=280, justify="right", fg_color=THEME["bg_app"], border_color=THEME["border"])
         cb_select_lab.pack(side="right", padx=(0, 16))
-        if labs_list: cb_select_lab.set(lab_names[0])
+        if labs_list:
+            cb_select_lab.set(lab_names[0])
 
-        # بطاقة عرض الرصيد المتبقي على العيادة للمعمل المحدد
         balance_card = ctk.CTkFrame(search_card, fg_color=THEME["bg_card"], corner_radius=10, border_width=1, border_color=THEME["border"])
         balance_card.pack(fill="x", padx=14, pady=(0, 12))
 
         lbl_balance_info = ctk.CTkLabel(
-            balance_card, 
-            text="📊 إجمالي طلبات المعمل: 0 ر.ي | المدفوع: 0 ر.ي | المتبقي على العيادة: 0 ر.ي", 
-            font=get_font(size=12, weight="bold"), 
-            text_color=THEME["warning"]
+            balance_card,
+            text="📊 إجمالي طلبات المعمل: 0 ر.ي | المدفوع: 0 ر.ي | المتبقي على العيادة: 0 ر.ي",
+            font=get_font(size=12, weight="bold"),
+            text_color=THEME["warning"],
         )
         lbl_balance_info.pack(anchor="e", padx=16, pady=8)
 
         form_frame = ctk.CTkFrame(
-            container, 
-            fg_color=THEME["bg_card_secondary"], 
-            corner_radius=12, 
-            border_width=1, 
-            border_color=THEME["border_light"]
+            container,
+            fg_color=THEME["bg_card_secondary"],
+            corner_radius=12,
+            border_width=1,
+            border_color=THEME["border_light"],
         )
         form_frame.pack(fill="x", padx=12, pady=(4, 8))
 
         ctk.CTkLabel(
-            form_frame, 
-            text="💵 تسجيل سند وسداد دفعة مالية للمعمل المحدد", 
-            font=get_font(size=14, weight="bold"), 
-            text_color=THEME["success"]
+            form_frame,
+            text="💵 تسجيل سند وسداد دفعة مالية للمعمل المحدد",
+            font=get_font(size=14, weight="bold"),
+            text_color=THEME["success"],
         ).pack(anchor="e", padx=16, pady=(10, 6))
 
         row1 = ctk.CTkFrame(form_frame, fg_color="transparent")
@@ -365,13 +396,14 @@ class LabsView(ctk.CTkFrame):
         row2.pack(fill="x", padx=14, pady=(6, 12))
 
         save_p_btn = ctk.CTkButton(
-            row2, 
-            text="💾 تأكيد وحفظ الدفعة", 
-            fg_color=THEME["success"], 
-            hover_color=THEME["success_hover"], 
-            width=160, 
-            height=34, 
-            font=get_font(size=12, weight="bold")
+            row2,
+            text="💾 تأكيد وحفظ الدفعة",
+            fg_color=THEME["success"],
+            hover_color=THEME["success_hover"],
+            text_color=THEME["text_light"],
+            width=160,
+            height=34,
+            font=get_font(size=12, weight="bold"),
         )
         save_p_btn.pack(side="left", padx=(0, 10))
 
@@ -383,11 +415,9 @@ class LabsView(ctk.CTkFrame):
         scroll.pack(fill="both", expand=True, padx=10, pady=6)
 
         def update_lab_financial_info(lab_id):
-            """جلب وعرض الحساب المالي للمعمل المحدد لتوضيح المبلغ المتبقي على العيادة"""
             summaries = self.payments_repo.get_labs_financial_summary()
             target_summary = next((s for s in summaries if s[0] == lab_id), None)
             if target_summary:
-                # target_summary = (lab_id, lab_name, total_cost, total_paid, remaining_balance)
                 total_c = float(target_summary[2] or 0)
                 total_p = float(target_summary[3] or 0)
                 remaining = float(target_summary[4] or 0)
@@ -400,27 +430,23 @@ class LabsView(ctk.CTkFrame):
         def load_payments(event=None):
             for w in scroll.winfo_children():
                 w.destroy()
-            
+
             selected_lab_name = cb_select_lab.get()
             selected_lab = next((l for l in labs_list if l[1] == selected_lab_name), None)
-            
+
             if not selected_lab:
                 ctk.CTkLabel(scroll, text="يرجى اختيار المعمل.", font=get_font(size=12), text_color=THEME["text_muted"]).pack(pady=25)
                 return
 
             lab_id = selected_lab[0]
-            
-            # تحديث ملخص الحساب المالي للمعمل المختار
             update_lab_financial_info(lab_id)
-
-            # جلب دفعات هذا المعمل المحدد فقط
             payments = self.payments_repo.get_payments_by_lab_id(lab_id)
 
             if payments:
                 for p in payments:
                     card = ctk.CTkFrame(scroll, fg_color=THEME["bg_card_secondary"], corner_radius=10, border_width=1, border_color=THEME["border"])
                     card.pack(fill="x", pady=4)
-                    
+
                     receipt_str = f" | السند: #{p[7]}" if len(p) > 7 and p[7] else ""
                     txt = f"💵 دفعة #{p[0]}{receipt_str} | المعمل: {p[2]} | المبلغ: {float(p[3] or 0):,.2f} ر.ي | الطريقة: {p[4]} | التاريخ: {p[5]}"
                     ctk.CTkLabel(card, text=txt, font=get_font(size=12), text_color=THEME["text_primary"]).pack(anchor="e", padx=15, pady=(8, 2))
@@ -429,21 +455,32 @@ class LabsView(ctk.CTkFrame):
                     act_row.pack(fill="x", padx=14, pady=(2, 8))
 
                     ctk.CTkButton(
-                        act_row, text="✏️ تعديل", width=80, height=26,
-                        font=get_font(size=10), fg_color=THEME["primary"], hover_color=THEME["primary_hover"],
-                        command=lambda pay_item=p: self._edit_payment_dialog(pay_item)
+                        act_row,
+                        text="✏️ تعديل",
+                        width=80,
+                        height=26,
+                        font=get_font(size=10),
+                        fg_color=THEME["primary"],
+                        hover_color=THEME["primary_hover"],
+                        text_color=THEME["text_light"],
+                        command=lambda pay_item=p: self._edit_payment_dialog(pay_item),
                     ).pack(side="left", padx=2)
 
                     if self.user_role == "admin":
                         ctk.CTkButton(
-                            act_row, text="🗑️ حذف", width=80, height=26,
-                            font=get_font(size=10), fg_color=THEME["danger_soft"], hover_color=THEME["danger"],
-                            command=lambda pay_id=p[0]: self._delete_payment(pay_id)
+                            act_row,
+                            text="🗑️ حذف",
+                            width=80,
+                            height=26,
+                            font=get_font(size=10),
+                            fg_color=THEME["danger_soft"],
+                            hover_color=THEME["danger"],
+                            text_color=THEME["danger"],
+                            command=lambda pay_id=p[0]: self._delete_payment(pay_id),
                         ).pack(side="left", padx=2)
             else:
                 ctk.CTkLabel(scroll, text=f"لا توجد مدفوعات مسجلة للمعمل ({selected_lab_name}) حالياً.", font=get_font(size=12), text_color=THEME["text_muted"]).pack(pady=25)
 
-        # ربط حدث تغير اختيار المعمل في القائمة لتحديث السجل والرصيد فوراً
         cb_select_lab.configure(command=load_payments)
 
         def save_payment():
@@ -481,8 +518,9 @@ class LabsView(ctk.CTkFrame):
         top.geometry("380x280")
         top.resizable(False, False)
         top.grab_set()
+        top.configure(fg_color=THEME["bg_card"])
 
-        ctk.CTkLabel(top, text=f"✏️ تعديل الدفعة المالية #{pay_id}", font=get_font(size=14, weight="bold"), text_color=THEME["warning"]).pack(pady=15)
+        ctk.CTkLabel(top, text="✏️ تعديل الدفعة المالية", font=get_font(size=14, weight="bold"), text_color=THEME["warning"]).pack(pady=15)
 
         form = ctk.CTkFrame(top, fg_color="transparent")
         form.pack(fill="both", expand=True, padx=20)
@@ -508,7 +546,17 @@ class LabsView(ctk.CTkFrame):
             except Exception as ex:
                 print(f"Error: {ex}")
 
-        ctk.CTkButton(top, text="💾 حفظ التعديلات", width=150, height=34, fg_color=THEME["warning"], hover_color="darkorange", font=get_font(size=12, weight="bold"), command=save_edits).pack(pady=10)
+        ctk.CTkButton(
+            top,
+            text="💾 حفظ التعديلات",
+            width=150,
+            height=34,
+            fg_color=THEME["warning"],
+            hover_color=THEME["warning_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"),
+            command=save_edits,
+        ).pack(pady=10)
 
     def _delete_payment(self, pay_id):
         if self.user_role != "admin":
@@ -526,19 +574,19 @@ class LabsView(ctk.CTkFrame):
             w.destroy()
 
         form_frame = ctk.CTkFrame(
-            container, 
-            fg_color=THEME["bg_card_secondary"], 
-            corner_radius=12, 
-            border_width=1, 
-            border_color=THEME["border_light"]
+            container,
+            fg_color=THEME["bg_card_secondary"],
+            corner_radius=12,
+            border_width=1,
+            border_color=THEME["border_light"],
         )
         form_frame.pack(fill="x", padx=12, pady=(10, 8))
 
         ctk.CTkLabel(
-            form_frame, 
-            text="🏢 إضافة معمل صناعة أسنان جديد", 
-            font=get_font(size=14, weight="bold"), 
-            text_color=THEME["teal"]
+            form_frame,
+            text="🏢 إضافة معمل صناعة أسنان جديد",
+            font=get_font(size=14, weight="bold"),
+            text_color=THEME["teal"],
         ).pack(anchor="e", padx=16, pady=(10, 6))
 
         row = ctk.CTkFrame(form_frame, fg_color="transparent")
@@ -570,7 +618,7 @@ class LabsView(ctk.CTkFrame):
                 for l in labs:
                     card = ctk.CTkFrame(scroll, fg_color=THEME["bg_card_secondary"], corner_radius=10, border_width=1, border_color=THEME["border"])
                     card.pack(fill="x", pady=4)
-                    
+
                     txt = f"🏢 المعمل: {l[1]}   |   📍 العنوان: {l[2] or 'غير متوفر'}   |   📞 الهاتف: {l[3] or 'غير متوفر'}"
                     ctk.CTkLabel(card, text=txt, font=get_font(size=12), text_color=THEME["text_primary"]).pack(anchor="e", padx=15, pady=(8, 2))
 
@@ -578,16 +626,28 @@ class LabsView(ctk.CTkFrame):
                     act_row.pack(fill="x", padx=14, pady=(2, 8))
 
                     ctk.CTkButton(
-                        act_row, text="✏️ تعديل المعمل", width=95, height=26,
-                        font=get_font(size=10), fg_color=THEME["primary"], hover_color=THEME["primary_hover"],
-                        command=lambda lab_item=l: self._edit_lab_dialog(lab_item)
+                        act_row,
+                        text="✏️ تعديل المعمل",
+                        width=95,
+                        height=26,
+                        font=get_font(size=10),
+                        fg_color=THEME["primary"],
+                        hover_color=THEME["primary_hover"],
+                        text_color=THEME["text_light"],
+                        command=lambda lab_item=l: self._edit_lab_dialog(lab_item),
                     ).pack(side="left", padx=2)
 
                     if self.user_role == "admin":
                         ctk.CTkButton(
-                            act_row, text="🗑️ حذف المعمل", width=95, height=26,
-                            font=get_font(size=10), fg_color=THEME["danger_soft"], hover_color=THEME["danger"],
-                            command=lambda lab_id=l[0]: self._delete_lab(lab_id)
+                            act_row,
+                            text="🗑️ حذف المعمل",
+                            width=95,
+                            height=26,
+                            font=get_font(size=10),
+                            fg_color=THEME["danger_soft"],
+                            hover_color=THEME["danger"],
+                            text_color=THEME["danger"],
+                            command=lambda lab_id=l[0]: self._delete_lab(lab_id),
                         ).pack(side="left", padx=2)
             else:
                 ctk.CTkLabel(scroll, text="لا توجد معامل مسجلة حالياً.", font=get_font(size=12), text_color=THEME["text_muted"]).pack(pady=25)
@@ -603,14 +663,15 @@ class LabsView(ctk.CTkFrame):
             load_labs()
 
         save_btn = ctk.CTkButton(
-            row, 
-            text="➕ إضافة المعمل", 
-            fg_color=THEME["teal"], 
-            hover_color=THEME["teal_hover"], 
-            command=save_lab, 
-            width=130, 
-            height=34, 
-            font=get_font(size=12, weight="bold")
+            row,
+            text="➕ إضافة المعمل",
+            fg_color=THEME["teal"],
+            hover_color=THEME["teal_hover"],
+            text_color=THEME["text_light"],
+            command=save_lab,
+            width=130,
+            height=34,
+            font=get_font(size=12, weight="bold"),
         )
         save_btn.pack(side="left")
 
@@ -623,8 +684,9 @@ class LabsView(ctk.CTkFrame):
         top.geometry("380x280")
         top.resizable(False, False)
         top.grab_set()
+        top.configure(fg_color=THEME["bg_card"])
 
-        ctk.CTkLabel(top, text=f"✏️ تعديل بيانات المعمل", font=get_font(size=14, weight="bold"), text_color=THEME["warning"]).pack(pady=15)
+        ctk.CTkLabel(top, text="✏️ تعديل بيانات المعمل", font=get_font(size=14, weight="bold"), text_color=THEME["warning"]).pack(pady=15)
 
         form = ctk.CTkFrame(top, fg_color="transparent")
         form.pack(fill="both", expand=True, padx=20)
@@ -648,7 +710,17 @@ class LabsView(ctk.CTkFrame):
             except Exception as ex:
                 print(f"Error: {ex}")
 
-        ctk.CTkButton(top, text="💾 حفظ التعديلات", width=150, height=34, fg_color=THEME["warning"], hover_color="darkorange", font=get_font(size=12, weight="bold"), command=save_edits).pack(pady=10)
+        ctk.CTkButton(
+            top,
+            text="💾 حفظ التعديلات",
+            width=150,
+            height=34,
+            fg_color=THEME["warning"],
+            hover_color=THEME["warning_hover"],
+            text_color=THEME["text_light"],
+            font=get_font(size=12, weight="bold"),
+            command=save_edits,
+        ).pack(pady=10)
 
     def _delete_lab(self, lab_id):
         if self.user_role != "admin":

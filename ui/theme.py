@@ -1,8 +1,9 @@
 """
-نظام الثيم الداكن الاحترافي لعيادة تيسير لطب الأسنان
-Dark Professional Medical Theme — Tayseer Dental Clinic OS
+نظام الثيم الداكن والفاتح الاحترافي لعيادة تيسير لطب الأسنان
+Dark & Light Professional Medical Theme — Tayseer Dental Clinic OS
 """
 
+import json
 import os
 import unicodedata
 from PIL import Image
@@ -11,7 +12,7 @@ import customtkinter as ctk
 # =========================================================================
 # لوحة الألوان الداكنة الطبية الاحترافية
 # =========================================================================
-THEME = {
+DARK_THEME = {
     # خلفيات
     "bg_app":            "#0D1B2A",   # خلفية التطبيق الرئيسية (أزرق داكن عميق)
     "bg_sidebar":        "#091624",   # الشريط الجانبي (أعمق)
@@ -28,7 +29,7 @@ THEME = {
     # النصوص — كلها واضحة على الخلفيات الداكنة
     "text_primary":      "#F0F6FF",   # أبيض مائل للأزرق الفاتح
     "text_secondary":    "#93B4D4",   # أزرق رمادي فاتح
-    "text_muted":        "#4A6A8A",   # خافت
+    "text_muted":        "#5C7FA3",   # رمادي أزرق واضح للقراءة
     "text_light":        "#FFFFFF",
 
     # ألوان وظيفية
@@ -75,6 +76,115 @@ THEME = {
 }
 
 # =========================================================================
+# لوحة الألوان الفاتحة (البيضاء) الطبية الاحترافية
+# =========================================================================
+LIGHT_THEME = {
+    # خلفيات
+    "bg_app":            "#F1F5F9",   # خلفية التطبيق الرئيسية (رمادي فاتح ناعم)
+    "bg_sidebar":        "#FFFFFF",   # الشريط الجانبي (أبيض ناصع)
+    "bg_header":         "#FFFFFF",
+    "bg_card":           "#FFFFFF",   # البطاقات والأقسام (أبيض)
+    "bg_card_secondary": "#F8FAFC",   # حقول الإدخال والبطاقات الثانوية
+    "bg_card_hover":     "#E2E8F0",
+
+    # الحدود
+    "border":            "#CBD5E1",
+    "border_light":      "#94A3B8",
+    "border_focus":      "#0284C7",
+
+    # النصوص — واضحة ومريحة على الخلفيات البيضاء والفاتحة
+    "text_primary":      "#0F172A",   # داكن جداً قريب من الأسود
+    "text_secondary":    "#334155",   # رمادي داكن واضح
+    "text_muted":        "#475569",   # رمادي متوسط واضح
+    "text_light":        "#FFFFFF",
+
+    # ألوان وظيفية
+    "primary":           "#0284C7",   # أزرق طبي واضح
+    "primary_hover":     "#0369A1",
+    "primary_soft":      "#E0F2FE",
+
+    "teal":              "#0D9488",
+    "teal_hover":        "#0F766E",
+    "teal_soft":         "#CCFBF1",
+
+    "success":           "#16A34A",
+    "success_hover":     "#15803D",
+    "success_soft":      "#DCFCE7",
+
+    "warning":           "#D97706",
+    "warning_hover":     "#B45309",
+    "warning_soft":      "#FEF3C7",
+
+    "danger":            "#E11D48",
+    "danger_hover":      "#BE123C",
+    "danger_soft":       "#FFE4E6",
+
+    "purple":            "#7C3AED",
+    "purple_hover":      "#6D28D9",
+    "purple_soft":       "#EDE9FE",
+
+    "indigo":            "#4F46E5",
+    "indigo_hover":      "#4338CA",
+    "indigo_soft":       "#E0E7FF",
+
+    # التنقل
+    "nav_active_bg":     "#0284C7",
+    "nav_active_fg":     "#FFFFFF",
+    "nav_inactive_bg":   "transparent",
+    "nav_inactive_fg":   "#1E293B",
+    "nav_hover_bg":      "#E2E8F0",
+
+    # التبويبات
+    "tabview_bg":        "#F1F5F9",
+    "tab_selected":      "#0284C7",
+    "tab_unselected":    "#E2E8F0",
+    "tab_hover":         "#CBD5E1",
+}
+
+CURRENT_APPEARANCE_MODE = "Dark"
+THEME = dict(DARK_THEME)
+
+
+def _read_saved_appearance_mode() -> str:
+    """قراءة نمط المظهر المحفوظ من clinic_profile.json إن وُجد"""
+    profile_path = os.path.join(os.getcwd(), "clinic_profile.json")
+    if os.path.exists(profile_path):
+        try:
+            with open(profile_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            mode = str(data.get("appearance", "Dark")).strip().lower()
+            if mode in ("light", "فاتح", "white", "أبيض"):
+                return "Light"
+            return "Dark"
+        except Exception:
+            pass
+    return "Dark"
+
+
+def set_appearance_mode_theme(mode: str = "Dark") -> str:
+    """تحديث نمط CustomTkinter وقاموس THEME بين الداكن والفاتح"""
+    global CURRENT_APPEARANCE_MODE
+    normalized = str(mode or "Dark").strip().lower()
+    target_mode = "Light" if normalized in ("light", "فاتح", "white", "أبيض") else "Dark"
+    CURRENT_APPEARANCE_MODE = target_mode
+
+    palette = LIGHT_THEME if target_mode == "Light" else DARK_THEME
+    THEME.clear()
+    THEME.update(palette)
+
+    try:
+        ctk.set_appearance_mode(target_mode)
+    except Exception:
+        pass
+
+    return target_mode
+
+
+def get_current_appearance_mode() -> str:
+    return CURRENT_APPEARANCE_MODE
+
+
+# =========================================================================
 # الخطوط
 # =========================================================================
 FONT_FAMILY = "Segoe UI"
@@ -115,8 +225,10 @@ def get_font(size=14, weight="normal"):
 def get_bold_font(size=14):
     return get_font(size=size, weight="bold")
 
+
 def get_title_font(size=20):
     return get_font(size=size, weight="bold")
+
 
 def get_heading_font(size=16):
     return get_font(size=size, weight="bold")
@@ -290,7 +402,6 @@ def _apply_widget_patches():
         return
     _patches_applied = True
 
-    # --- Buttons ---
     orig_button_init = ctk.CTkButton.__init__
 
     def patched_button_init(self, *args, **kwargs):
@@ -304,7 +415,6 @@ def _apply_widget_patches():
 
     ctk.CTkButton.__init__ = patched_button_init
 
-    # --- Entries ---
     orig_entry_init = ctk.CTkEntry.__init__
 
     def patched_entry_init(self, *args, **kwargs):
@@ -321,7 +431,6 @@ def _apply_widget_patches():
 
     ctk.CTkEntry.__init__ = patched_entry_init
 
-    # --- ComboBox — إصلاح عكس النص العربي ---
     orig_combo_init = ctk.CTkComboBox.__init__
 
     def patched_combo_init(self, *args, **kwargs):
@@ -338,16 +447,39 @@ def _apply_widget_patches():
 
     ctk.CTkComboBox.__init__ = patched_combo_init
 
+    orig_seg_init = ctk.CTkSegmentedButton.__init__
 
-def apply_global_styles():
-    """تطبيق النمط الداكن الاحترافي"""
-    ctk.set_appearance_mode("Dark")
+    def patched_seg_init(self, *args, **kwargs):
+        if "font" not in kwargs or kwargs["font"] is None:
+            kwargs["font"] = get_font(size=12, weight="bold")
+        if "fg_color" not in kwargs:
+            kwargs["fg_color"] = THEME["bg_card_secondary"]
+        if "selected_color" not in kwargs:
+            kwargs["selected_color"] = THEME["primary"]
+        if "selected_hover_color" not in kwargs:
+            kwargs["selected_hover_color"] = THEME["primary_hover"]
+        if "unselected_color" not in kwargs:
+            kwargs["unselected_color"] = THEME["bg_card"]
+        if "unselected_hover_color" not in kwargs:
+            kwargs["unselected_hover_color"] = THEME["bg_card_hover"]
+        if "text_color" not in kwargs:
+            kwargs["text_color"] = THEME["text_primary"]
+        return orig_seg_init(self, *args, **kwargs)
+
+    ctk.CTkSegmentedButton.__init__ = patched_seg_init
+
+
+def apply_global_styles(mode: str = None):
+    """تطبيق النمط المحفوظ أو المحدد (الداكن أو الفاتح)"""
+    chosen_mode = mode if mode else _read_saved_appearance_mode()
+    set_appearance_mode_theme(chosen_mode)
     ctk.set_default_color_theme("blue")
     _apply_widget_patches()
 
 
-# تطبيق فور الاستيراد
+# تطبيق فور الاستيراد حسب الملف المحفوظ
 _apply_widget_patches()
+set_appearance_mode_theme(_read_saved_appearance_mode())
 
 
 # =========================================================================
@@ -399,4 +531,3 @@ def get_clinic_logo(variant="emblem", size=(44, 44)):
     except Exception as e:
         print(f"[تحذير عند تحميل شعار العيادة]: {e}")
         return None
-
