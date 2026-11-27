@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class TreatmentsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_treatment(self, patient_id, emp_id, treatment_type, description, cost, treatment_date, notes):
         """إضافة جلسة علاجية جديدة مع حساب رقم الجلسة الخاص بالمريض الحالي حصرياً وبشكل مستقل"""

@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class ExpensesRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_expense(self, expense_category, amount, expense_date, emp_id, notes):
         """إضافة مصروف جديد إلى جدول expenses"""

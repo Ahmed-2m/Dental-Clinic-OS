@@ -5,6 +5,8 @@ from fpdf import FPDF
 import arabic_reshaper
 from bidi.algorithm import get_display
 from backend.database import Database
+from backend.print_branding import load_clinic_profile, draw_pdf_clinic_logo
+
 
 def fix_ar(text):
     if not text:
@@ -14,9 +16,10 @@ def fix_ar(text):
     except Exception:
         return str(text)
 
+
 class ReportsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def get_financial_report(self, start_date, end_date):
         """
@@ -37,7 +40,7 @@ class ReportsRepository:
             rows = cursor.fetchall()
 
             total_salaries = sum(float(r[3] or 0) for r in rows if r[5] == 'active')
-            
+
             # إجمالي المرضى
             total_patients = 0
             try:
@@ -63,7 +66,7 @@ class ReportsRepository:
                 "active_staff_count": len([r for r in rows if r[5] == 'active']),
                 "total_salaries": total_salaries,
                 "total_patients": total_patients,
-                "total_appointments": total_appointments
+                "total_appointments": total_appointments,
             }
             cursor.close()
             conn.close()
@@ -72,14 +75,17 @@ class ReportsRepository:
             print(f"[خطأ في التقرير]: {e}")
             return [], {}
 
-    def export_to_excel(self, rows, summary, save_path, clinic_info):
+    def export_to_excel(self, rows, summary, save_path, clinic_info=None):
         """توليد ملف Excel احترافي منسق"""
         try:
+            c_info = clinic_info or load_clinic_profile()
             columns = ["الرقم الوظيفي", "الاسم الكامل", "المسمى الوظيفي", "الراتب", "تاريخ التعيين", "الحالة"]
             df_data = pd.DataFrame(rows, columns=columns)
 
             summary_data = pd.DataFrame([
-                {"البيان": "اسم العيادة", "القيمة": clinic_info.get("name", "عيادة تيسير")},
+                {"البيان": "اسم العيادة", "القيمة": c_info.get("name", "عيادة تيسير")},
+                {"البيان": "رقم الهاتف", "القيمة": c_info.get("phone", "")},
+                {"البيان": "العنوان", "القيمة": c_info.get("address", "")},
                 {"البيان": "فترة التقرير", "القيمة": summary.get("period", "")},
                 {"البيان": "إجمالي المرضى المسجلين", "القيمة": summary.get("total_patients", 0)},
                 {"البيان": "إجمالي المواعيد", "القيمة": summary.get("total_appointments", 0)},
@@ -94,12 +100,14 @@ class ReportsRepository:
         except Exception as e:
             return False, f"فشل تصدير Excel: {e}"
 
-    def export_to_pdf(self, rows, summary, save_path, clinic_info):
-        """توليد ملف PDF رسمي مع ترويسة العيادة وجدول البيانات"""
+    def export_to_pdf(self, rows, summary, save_path, clinic_info=None):
+        """توليد ملف PDF رسمي مع ترويسة العيادة والشعار وجدول البيانات"""
         try:
+            c_info = clinic_info or load_clinic_profile()
             pdf = FPDF()
             pdf.add_page()
-            
+            draw_pdf_clinic_logo(pdf, c_info)
+
             font_path = r"C:\Windows\Fonts\arial.ttf"
             if os.path.exists(font_path):
                 pdf.add_font("ArabicFont", "", font_path, uni=True)
@@ -107,9 +115,9 @@ class ReportsRepository:
             else:
                 pdf.set_font("Arial", size=12)
 
-            pdf.cell(0, 10, txt=fix_ar(clinic_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
+            pdf.cell(0, 10, txt=fix_ar(c_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
             pdf.set_font_size(10)
-            pdf.cell(0, 7, txt=fix_ar(f"العنوان: {clinic_info.get('address', '')} | الهاتف: {clinic_info.get('phone', '')}"), ln=True, align="C")
+            pdf.cell(0, 7, txt=fix_ar(f"العنوان: {c_info.get('address', '')} | الهاتف: {c_info.get('phone', '')}"), ln=True, align="C")
             pdf.cell(0, 7, txt=fix_ar(f"تقرير وكشف حساب للفترة: {summary.get('period', '')}"), ln=True, align="C")
             pdf.ln(8)
 
@@ -120,7 +128,7 @@ class ReportsRepository:
 
             headers = ["الحالة", "التعيين", "الراتب", "الوظيفة", "الاسم", "ID"]
             col_widths = [25, 30, 30, 40, 50, 15]
-            
+
             pdf.set_fill_color(31, 83, 141)
             pdf.set_text_color(255, 255, 255)
             for h, w in zip(headers, col_widths):

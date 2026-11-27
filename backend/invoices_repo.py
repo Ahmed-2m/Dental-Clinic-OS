@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class InvoicesRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_invoice(self, patient_id, treatment_id, total_amount, paid_amount, remaining_amount, payment_date, payment_status, payment_method):
         """إضافة فاتورة جديدة أو حركة مالية للمريض"""

@@ -1,10 +1,17 @@
+import os
 import datetime
+import pandas as pd
+from fpdf import FPDF
+import arabic_reshaper
+from bidi.algorithm import get_display
 from mysql.connector import Error
 from backend.database import Database
+from backend.print_branding import load_clinic_profile, draw_pdf_clinic_logo
+
 
 class DailyTreasuryRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def get_connection(self):
         return self.db.get_connection()
@@ -28,7 +35,7 @@ class DailyTreasuryRepository:
             date_filter_lab = "WHERE lp.amount_paid > 0"
             date_filter_sup = "WHERE sp.amount > 0"
             date_filter_emp = "WHERE et.amount > 0"
-            
+
             params_pat = []
             params_lab = []
             params_sup = []
@@ -69,7 +76,7 @@ class DailyTreasuryRepository:
                     "amount": amt,
                     "method": r[3],
                     "source": f"مريض: {r[4]}",
-                    "notes": r[5]
+                    "notes": r[5],
                 })
 
             # 2. الصادر (مدفوعات المعامل من lab_payments مع تضمين رقم المستند receipt_no)
@@ -97,7 +104,7 @@ class DailyTreasuryRepository:
                     "amount": amt,
                     "method": r[3],
                     "source": f"معمل: {r[4]}",
-                    "notes": r[5]
+                    "notes": r[5],
                 })
 
             # 3. الصادر (مدفوعات الموردين من supplier_payments بدون استدعاء payment_method غير الموجود)
@@ -121,7 +128,7 @@ class DailyTreasuryRepository:
                     "amount": amt,
                     "method": "نقداً",
                     "source": f"مورد: {r[3]}",
-                    "notes": r[4]
+                    "notes": r[4],
                 })
 
             # 4. الصادر (حركات الموظفين من employee_transactions)
@@ -144,7 +151,7 @@ class DailyTreasuryRepository:
                     "amount": amt,
                     "method": "نقداً",
                     "source": f"موظف ({r[3]}): {r[4]}",
-                    "notes": r[5] or "-"
+                    "notes": r[5] or "-",
                 })
 
             opening_balance = 0.00
@@ -155,7 +162,7 @@ class DailyTreasuryRepository:
                 "opening_balance": opening_balance,
                 "total_inflow": total_in,
                 "total_outflow": total_out,
-                "net_cash": net_cash
+                "net_cash": net_cash,
             }
 
             cursor.close()
@@ -170,7 +177,7 @@ class DailyTreasuryRepository:
         """تنفيذ عملية الإغلاق اليومي وحفظها في قاعدة البيانات"""
         if not target_date:
             target_date = datetime.date.today().strftime("%Y-%m-%d")
-            
+
         _, _, summary = self.get_daily_transactions(target_date)
         if not summary:
             return False, "فشل حساب ملخص الخزينة لتنفيذ الإغلاق."
@@ -198,7 +205,7 @@ class DailyTreasuryRepository:
                 summary["total_outflow"],
                 summary["net_cash"],
                 username,
-                notes
+                notes,
             ))
             conn.commit()
             cursor.close()
@@ -209,14 +216,21 @@ class DailyTreasuryRepository:
 
     def export_treasury_pdf(self, target_date, save_path, clinic_info=None):
         """تصدير تقرير الحركة اليومية للصندوق إلى ملف PDF"""
-        import os
-        from fpdf import FPDF
-
+        c_info = clinic_info or load_clinic_profile()
         inflows, outflows, summary = self.get_daily_transactions(target_date)
-        
-        pdf = FPDF(orientation='P', unit='mm', format='A4')
+        if not summary:
+            summary = {
+                "target_date": target_date or "كامل السجل",
+                "opening_balance": 0.0,
+                "total_inflow": 0.0,
+                "total_outflow": 0.0,
+                "net_cash": 0.0,
+            }
+
+        pdf = FPDF(orientation="P", unit="mm", format="A4")
         pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
+        draw_pdf_clinic_logo(pdf, c_info)
 
         font_path = r"C:\Windows\Fonts\arial.ttf"
         font_bold_path = r"C:\Windows\Fonts\arialbd.ttf"
@@ -232,10 +246,12 @@ class DailyTreasuryRepository:
         # رأس التقرير
         pdf.set_font(font_name, "B", 16)
         pdf.set_text_color(15, 23, 42)
-        pdf.cell(0, 8, txt=self._fix_ar("عيادة تيسير لطب الأسنان"), ln=True, align="C")
+        pdf.cell(0, 8, txt=self._fix_ar(c_info.get("name", "عيادة تيسير لطب الأسنان")), ln=True, align="C")
 
         pdf.set_font(font_name, "", 10)
         pdf.set_text_color(71, 85, 105)
+        contact_line = f"العنوان: {c_info.get('address', '')}   |   هاتف: {c_info.get('phone', '')}"
+        pdf.cell(0, 5, txt=self._fix_ar(contact_line), ln=True, align="C")
         pdf.cell(0, 6, txt=self._fix_ar(f"تقرير حركة الخزينة والصندوق اليومي - التاريخ: {target_date}"), ln=True, align="C")
         pdf.ln(4)
 
@@ -268,9 +284,9 @@ class DailyTreasuryRepository:
         pdf.set_text_color(30, 41, 59)
         if inflows:
             for item in inflows:
-                pdf.cell(60, 6, txt=self._fix_ar(str(item['notes'])), border=1, align="R")
-                pdf.cell(45, 6, txt=self._fix_ar(str(item['source'])), border=1, align="R")
-                pdf.cell(35, 6, txt=self._fix_ar(str(item['method'])), border=1, align="C")
+                pdf.cell(60, 6, txt=self._fix_ar(str(item["notes"])), border=1, align="R")
+                pdf.cell(45, 6, txt=self._fix_ar(str(item["source"])), border=1, align="R")
+                pdf.cell(35, 6, txt=self._fix_ar(str(item["method"])), border=1, align="C")
                 pdf.cell(40, 6, txt=self._fix_ar(f"{item['amount']:,.2f}"), border=1, align="C")
                 pdf.ln()
         else:
@@ -297,9 +313,9 @@ class DailyTreasuryRepository:
         pdf.set_text_color(30, 41, 59)
         if outflows:
             for item in outflows:
-                pdf.cell(60, 6, txt=self._fix_ar(str(item['notes'])), border=1, align="R")
-                pdf.cell(45, 6, txt=self._fix_ar(str(item['source'])), border=1, align="R")
-                pdf.cell(35, 6, txt=self._fix_ar(str(item['method'])), border=1, align="C")
+                pdf.cell(60, 6, txt=self._fix_ar(str(item["notes"])), border=1, align="R")
+                pdf.cell(45, 6, txt=self._fix_ar(str(item["source"])), border=1, align="R")
+                pdf.cell(35, 6, txt=self._fix_ar(str(item["method"])), border=1, align="C")
                 pdf.cell(40, 6, txt=self._fix_ar(f"{item['amount']:,.2f}"), border=1, align="C")
                 pdf.ln()
         else:
@@ -309,29 +325,47 @@ class DailyTreasuryRepository:
         pdf.output(save_path)
         return True, "تم تصدير تقرير الخزينة PDF بنجاح."
 
-    def export_treasury_excel(self, target_date, save_path):
+    def export_treasury_excel(self, target_date, save_path, clinic_info=None):
         """تصدير تقرير الحركة اليومية للصندوق إلى ملف Excel"""
-        import pandas as pd
+        c_info = clinic_info or load_clinic_profile()
         inflows, outflows, summary = self.get_daily_transactions(target_date)
+        if not summary:
+            summary = {
+                "target_date": target_date or "كامل السجل",
+                "opening_balance": 0.0,
+                "total_inflow": 0.0,
+                "total_outflow": 0.0,
+                "net_cash": 0.0,
+            }
+
+        summary_with_clinic = {
+            "اسم العيادة": c_info.get("name", "عيادة تيسير لطب الأسنان"),
+            "هاتف العيادة": c_info.get("phone", ""),
+            "عنوان العيادة": c_info.get("address", ""),
+            "التاريخ": summary.get("target_date", target_date or ""),
+            "الرصيد الافتتاحي": summary.get("opening_balance", 0.0),
+            "إجمالي الوارد": summary.get("total_inflow", 0.0),
+            "إجمالي الصادر": summary.get("total_outflow", 0.0),
+            "صافي النقدية": summary.get("net_cash", 0.0),
+        }
 
         in_df = pd.DataFrame(inflows) if inflows else pd.DataFrame(columns=["date", "source", "amount", "method", "notes"])
         out_df = pd.DataFrame(outflows) if outflows else pd.DataFrame(columns=["date", "source", "amount", "method", "notes"])
 
-        with pd.ExcelWriter(save_path, engine='openpyxl') as writer:
-            summary_df = pd.DataFrame([summary])
-            summary_df.to_excel(writer, sheet_name='الملخص المالي', index=False)
+        with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
+            summary_df = pd.DataFrame([summary_with_clinic])
+            summary_df.to_excel(writer, sheet_name="الملخص المالي", index=False)
             if not in_df.empty:
-                in_df.to_excel(writer, sheet_name='الوارد النقدي', index=False)
+                in_df.to_excel(writer, sheet_name="الوارد النقدي", index=False)
             if not out_df.empty:
-                out_df.to_excel(writer, sheet_name='الصادر النقدي', index=False)
+                out_df.to_excel(writer, sheet_name="الصادر النقدي", index=False)
+            for sheet in writer.sheets.values():
+                sheet.sheet_view.rightToLeft = True
 
         return True, "تم تصدير تقرير الخزينة Excel بنجاح."
 
     def _fix_ar(self, text):
         """معالجة وتشكيل وعكس النصوص العربية لتظهر بشكل سليم في تقارير FPDF"""
-        import arabic_reshaper
-        from bidi.algorithm import get_display
-
         if not text or not isinstance(text, str):
             return str(text or "")
 

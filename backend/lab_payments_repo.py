@@ -3,7 +3,7 @@ from mysql.connector import Error
 
 class LabPaymentsRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
 
     def add_payment(self, lab_id, amount_paid, payment_method, payment_date, notes, receipt_no=None):
         """تسجيل دفعة مالية جديدة للمعمل مع رقم السند"""

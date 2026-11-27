@@ -5,7 +5,7 @@ from backend.database import Database
 
 class BackupRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
         # إنشاء مجلد تلقائي للنسخ الاحتياطية داخل مشروع العيادة إن لم يكن موجوداً
         self.default_backup_dir = os.path.join(os.getcwd(), "database_backups")
         if not os.path.exists(self.default_backup_dir):

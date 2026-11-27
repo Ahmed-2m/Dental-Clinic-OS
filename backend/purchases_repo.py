@@ -34,7 +34,7 @@ def fix_ar(text):
 
 class PurchasesRepository:
     def __init__(self):
-        self.db = Database()
+        self.db = Database.from_config_file()
         self._init_tables()
 
     def _init_tables(self):
