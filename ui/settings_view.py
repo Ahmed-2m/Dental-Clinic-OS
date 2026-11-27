@@ -629,8 +629,8 @@ class SettingsView(ctk.CTkFrame):
     # 4. تبويب الإعدادات العامة (يدعم المظهر الداكن والفاتح)
     # =========================================================================
     def _build_general_tab_content(self):
-        container = ctk.CTkFrame(self.tab_general, fg_color="transparent")
-        container.pack(fill="both", expand=True, padx=30, pady=25)
+        container = ctk.CTkScrollableFrame(self.tab_general, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=16, pady=12)
 
         ctk.CTkLabel(container, text="⚙️ إعدادات العيادة العامة والتفضيلات", font=get_font(size=16, weight="bold"), text_color=THEME["primary"]).pack(anchor="e", pady=(0, 6))
         ctk.CTkLabel(container, text="البيانات المحفوظة هنا تُطبع تلقائياً في ترويسة كشوفات الـ PDF وتقارير الـ Excel الرسمية، ويُحفظ نمط المظهر تلقائياً.", font=get_font(size=12), text_color=THEME["text_secondary"]).pack(anchor="e", pady=(0, 16))
